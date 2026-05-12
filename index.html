@@ -1,0 +1,747 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>Invoice Review</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@300;400;500;600&family=DM+Mono:wght@400;500&display=swap" rel="stylesheet">
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+    :root {
+      --bg: #F7F6F3;
+      --surface: #FFFFFF;
+      --border: #E4E2DC;
+      --border-strong: #C8C5BB;
+      --text-primary: #1A1916;
+      --text-secondary: #6B6860;
+      --text-tertiary: #9E9B94;
+      --accent: #1A1916;
+      --approve: #1C6B45;
+      --approve-bg: #EBF5F0;
+      --approve-border: #A7D9BF;
+      --reject: #8B2020;
+      --reject-bg: #FBF0F0;
+      --reject-border: #E5AAAA;
+      --pending: #7A5C1E;
+      --pending-bg: #FDF6E8;
+      --pending-border: #E8D49A;
+      --font: 'DM Sans', sans-serif;
+      --mono: 'DM Mono', monospace;
+      --radius: 10px;
+      --radius-sm: 6px;
+    }
+
+    html { font-family: var(--font); background: var(--bg); color: var(--text-primary); min-height: 100vh; }
+
+    body { min-height: 100vh; display: flex; flex-direction: column; }
+
+    /* ── Header ── */
+    header {
+      background: var(--surface);
+      border-bottom: 1px solid var(--border);
+      padding: 0 32px;
+      height: 56px;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      position: sticky;
+      top: 0;
+      z-index: 10;
+    }
+
+    .logo {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      font-weight: 600;
+      font-size: 15px;
+      letter-spacing: -0.02em;
+      color: var(--text-primary);
+    }
+
+    .logo-icon {
+      width: 28px;
+      height: 28px;
+      background: var(--text-primary);
+      border-radius: 6px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+    }
+
+    .logo-icon svg { width: 16px; height: 16px; }
+
+    .header-meta {
+      font-size: 13px;
+      color: var(--text-tertiary);
+      font-family: var(--mono);
+    }
+
+    /* ── Main layout ── */
+    main {
+      flex: 1;
+      max-width: 780px;
+      width: 100%;
+      margin: 0 auto;
+      padding: 40px 24px 80px;
+    }
+
+    /* ── Status bar ── */
+    .status-row {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      margin-bottom: 28px;
+    }
+
+    .page-title {
+      font-size: 22px;
+      font-weight: 600;
+      letter-spacing: -0.03em;
+      color: var(--text-primary);
+    }
+
+    .status-badge {
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      padding: 5px 12px;
+      border-radius: 999px;
+      font-size: 12px;
+      font-weight: 500;
+      letter-spacing: 0.02em;
+      text-transform: uppercase;
+      border: 1px solid;
+    }
+
+    .status-badge.pending {
+      background: var(--pending-bg);
+      color: var(--pending);
+      border-color: var(--pending-border);
+    }
+
+    .status-badge.approved {
+      background: var(--approve-bg);
+      color: var(--approve);
+      border-color: var(--approve-border);
+    }
+
+    .status-badge.rejected {
+      background: var(--reject-bg);
+      color: var(--reject);
+      border-color: var(--reject-border);
+    }
+
+    .status-dot {
+      width: 6px;
+      height: 6px;
+      border-radius: 50%;
+      background: currentColor;
+    }
+
+    /* ── Card ── */
+    .card {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      overflow: hidden;
+      margin-bottom: 16px;
+    }
+
+    .card-header {
+      padding: 20px 24px 16px;
+      border-bottom: 1px solid var(--border);
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+    }
+
+    .card-title {
+      font-size: 13px;
+      font-weight: 500;
+      color: var(--text-secondary);
+      text-transform: uppercase;
+      letter-spacing: 0.06em;
+    }
+
+    .edit-toggle {
+      font-size: 12px;
+      font-weight: 500;
+      color: var(--text-secondary);
+      background: none;
+      border: 1px solid var(--border);
+      border-radius: var(--radius-sm);
+      padding: 4px 10px;
+      cursor: pointer;
+      transition: all 0.15s;
+      font-family: var(--font);
+    }
+
+    .edit-toggle:hover {
+      background: var(--bg);
+      border-color: var(--border-strong);
+      color: var(--text-primary);
+    }
+
+    .edit-toggle.active {
+      background: var(--text-primary);
+      border-color: var(--text-primary);
+      color: white;
+    }
+
+    /* ── Fields grid ── */
+    .fields-grid {
+      padding: 8px 24px 20px;
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 0;
+    }
+
+    .field {
+      padding: 14px 0;
+      border-bottom: 1px solid var(--border);
+    }
+
+    .field:nth-last-child(-n+2) { border-bottom: none; }
+
+    .field:nth-child(odd) { padding-right: 24px; border-right: 1px solid var(--border); }
+    .field:nth-child(even) { padding-left: 24px; }
+
+    .field-label {
+      font-size: 11px;
+      font-weight: 500;
+      color: var(--text-tertiary);
+      text-transform: uppercase;
+      letter-spacing: 0.07em;
+      margin-bottom: 6px;
+    }
+
+    .field-value {
+      font-size: 15px;
+      font-weight: 400;
+      color: var(--text-primary);
+    }
+
+    .field-value.mono {
+      font-family: var(--mono);
+      font-size: 14px;
+    }
+
+    .field-value.amount {
+      font-size: 20px;
+      font-weight: 600;
+      letter-spacing: -0.02em;
+      font-family: var(--mono);
+    }
+
+    /* ── Editable input ── */
+    .field-input {
+      font-size: 15px;
+      font-weight: 400;
+      color: var(--text-primary);
+      font-family: var(--font);
+      background: var(--bg);
+      border: 1px solid var(--border-strong);
+      border-radius: var(--radius-sm);
+      padding: 6px 10px;
+      width: 100%;
+      outline: none;
+      transition: border-color 0.15s;
+    }
+
+    .field-input:focus { border-color: var(--text-primary); }
+    .field-input.mono { font-family: var(--mono); font-size: 14px; }
+    .field-input.amount { font-size: 18px; font-weight: 600; font-family: var(--mono); }
+
+    /* ── Comments ── */
+    .comments-card .card-body { padding: 16px 24px; }
+
+    textarea.comments-input {
+      width: 100%;
+      min-height: 88px;
+      resize: vertical;
+      font-family: var(--font);
+      font-size: 14px;
+      color: var(--text-primary);
+      background: var(--bg);
+      border: 1px solid var(--border);
+      border-radius: var(--radius-sm);
+      padding: 12px 14px;
+      outline: none;
+      transition: border-color 0.15s;
+      line-height: 1.6;
+    }
+
+    textarea.comments-input:focus { border-color: var(--border-strong); }
+    textarea.comments-input::placeholder { color: var(--text-tertiary); }
+
+    /* ── Meta info strip ── */
+    .meta-strip {
+      display: flex;
+      gap: 24px;
+      padding: 12px 24px;
+      background: var(--bg);
+      border-top: 1px solid var(--border);
+    }
+
+    .meta-item {
+      font-size: 12px;
+      color: var(--text-tertiary);
+      font-family: var(--mono);
+    }
+
+    .meta-item span { color: var(--text-secondary); }
+
+    /* ── Actions ── */
+    .actions-row {
+      display: flex;
+      gap: 10px;
+      margin-top: 24px;
+    }
+
+    .btn {
+      flex: 1;
+      padding: 13px 20px;
+      border-radius: var(--radius);
+      font-size: 14px;
+      font-weight: 500;
+      font-family: var(--font);
+      cursor: pointer;
+      border: 1px solid;
+      transition: all 0.15s;
+      letter-spacing: -0.01em;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 8px;
+    }
+
+    .btn:disabled { opacity: 0.5; cursor: not-allowed; }
+
+    .btn-approve {
+      background: var(--approve-bg);
+      color: var(--approve);
+      border-color: var(--approve-border);
+    }
+
+    .btn-approve:hover:not(:disabled) {
+      background: var(--approve);
+      color: white;
+      border-color: var(--approve);
+    }
+
+    .btn-reject {
+      background: var(--reject-bg);
+      color: var(--reject);
+      border-color: var(--reject-border);
+    }
+
+    .btn-reject:hover:not(:disabled) {
+      background: var(--reject);
+      color: white;
+      border-color: var(--reject);
+    }
+
+    .btn svg { width: 16px; height: 16px; flex-shrink: 0; }
+
+    /* ── Loading state ── */
+    #loading-state {
+      text-align: center;
+      padding: 80px 24px;
+    }
+
+    .spinner {
+      width: 32px;
+      height: 32px;
+      border: 2px solid var(--border);
+      border-top-color: var(--text-primary);
+      border-radius: 50%;
+      animation: spin 0.7s linear infinite;
+      margin: 0 auto 16px;
+    }
+
+    @keyframes spin { to { transform: rotate(360deg); } }
+
+    /* ── Success state ── */
+    #success-state {
+      display: none;
+      text-align: center;
+      padding: 80px 24px;
+    }
+
+    .success-icon {
+      width: 52px;
+      height: 52px;
+      border-radius: 50%;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      margin: 0 auto 20px;
+    }
+
+    .success-icon.approve { background: var(--approve-bg); }
+    .success-icon.reject { background: var(--reject-bg); }
+
+    .success-icon svg { width: 24px; height: 24px; }
+
+    .success-title {
+      font-size: 20px;
+      font-weight: 600;
+      letter-spacing: -0.02em;
+      margin-bottom: 8px;
+    }
+
+    .success-sub {
+      font-size: 14px;
+      color: var(--text-secondary);
+      line-height: 1.6;
+    }
+
+    /* ── Error state ── */
+    #error-state {
+      display: none;
+      background: var(--reject-bg);
+      border: 1px solid var(--reject-border);
+      border-radius: var(--radius);
+      padding: 16px 20px;
+      margin-bottom: 16px;
+      font-size: 14px;
+      color: var(--reject);
+    }
+
+    /* ── No data state ── */
+    #no-data-state {
+      display: none;
+      text-align: center;
+      padding: 80px 24px;
+    }
+
+    .no-data-icon {
+      font-size: 40px;
+      margin-bottom: 16px;
+      opacity: 0.4;
+    }
+
+    /* ── Animations ── */
+    .card { animation: fadeUp 0.3s ease both; }
+    .card:nth-child(2) { animation-delay: 0.05s; }
+    .card:nth-child(3) { animation-delay: 0.1s; }
+    .actions-row { animation: fadeUp 0.3s ease 0.15s both; }
+
+    @keyframes fadeUp {
+      from { opacity: 0; transform: translateY(10px); }
+      to { opacity: 1; transform: translateY(0); }
+    }
+
+    /* ── Responsive ── */
+    @media (max-width: 520px) {
+      main { padding: 24px 16px 60px; }
+      .fields-grid { grid-template-columns: 1fr; }
+      .field:nth-child(odd) { padding-right: 0; border-right: none; }
+      .field:nth-child(even) { padding-left: 0; }
+      .field:nth-last-child(-n+2) { border-bottom: 1px solid var(--border); }
+      .field:last-child { border-bottom: none; }
+      .actions-row { flex-direction: column; }
+      header { padding: 0 16px; }
+    }
+  </style>
+</head>
+<body>
+
+<header>
+  <div class="logo">
+    <div class="logo-icon">
+      <svg viewBox="0 0 16 16" fill="none" xmlns="http://www.w3.org/2000/svg">
+        <rect x="2" y="2" width="5" height="6" rx="1" fill="white"/>
+        <rect x="9" y="2" width="5" height="3" rx="1" fill="white" opacity="0.6"/>
+        <rect x="9" y="7" width="5" height="7" rx="1" fill="white" opacity="0.6"/>
+        <rect x="2" y="10" width="5" height="4" rx="1" fill="white" opacity="0.6"/>
+      </svg>
+    </div>
+    Invoice Review
+  </div>
+  <div class="header-meta" id="header-id">—</div>
+</header>
+
+<main>
+
+  <!-- Loading -->
+  <div id="loading-state">
+    <div class="spinner"></div>
+    <p style="font-size:14px;color:var(--text-secondary)">Loading invoice data…</p>
+  </div>
+
+  <!-- No data -->
+  <div id="no-data-state">
+    <div class="no-data-icon">📭</div>
+    <p style="font-size:16px;font-weight:500;margin-bottom:8px">No invoice to review</p>
+    <p style="font-size:14px;color:var(--text-secondary)">No data was passed to this page.<br>This link may have expired or be invalid.</p>
+  </div>
+
+  <!-- Error -->
+  <div id="error-state"></div>
+
+  <!-- Success -->
+  <div id="success-state">
+    <div class="success-icon" id="success-icon">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" id="success-svg"></svg>
+    </div>
+    <div class="success-title" id="success-title"></div>
+    <div class="success-sub" id="success-sub"></div>
+  </div>
+
+  <!-- Main content -->
+  <div id="main-content" style="display:none">
+
+    <div class="status-row">
+      <div class="page-title">Invoice Review</div>
+      <div class="status-badge pending" id="status-badge">
+        <div class="status-dot"></div>
+        <span id="status-text">Pending</span>
+      </div>
+    </div>
+
+    <!-- Invoice Details Card -->
+    <div class="card">
+      <div class="card-header">
+        <div class="card-title">Invoice Details</div>
+        <button class="edit-toggle" id="edit-toggle" onclick="toggleEdit()">Edit fields</button>
+      </div>
+      <div class="fields-grid" id="fields-grid">
+        <!-- populated by JS -->
+      </div>
+      <div class="meta-strip">
+        <div class="meta-item">ID: <span id="meta-id">—</span></div>
+        <div class="meta-item">Received: <span id="meta-time">—</span></div>
+      </div>
+    </div>
+
+    <!-- Comments Card -->
+    <div class="card comments-card">
+      <div class="card-header">
+        <div class="card-title">Reviewer Comments</div>
+      </div>
+      <div class="card-body">
+        <textarea class="comments-input" id="comments" placeholder="Add any notes or comments about this invoice (optional)…"></textarea>
+      </div>
+    </div>
+
+    <!-- Actions -->
+    <div class="actions-row">
+      <button class="btn btn-approve" onclick="submitAction('Approved')" id="btn-approve">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+          <polyline points="20 6 9 17 4 12"/>
+        </svg>
+        Approve Invoice
+      </button>
+      <button class="btn btn-reject" onclick="submitAction('Rejected')" id="btn-reject">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+          <line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/>
+        </svg>
+        Reject Invoice
+      </button>
+    </div>
+
+  </div>
+</main>
+
+<script>
+  // ── Field definitions ──
+  const FIELDS = [
+    { key: 'invoiceName',   label: 'Invoice Name',   type: 'text',   editable: true,  wide: false },
+    { key: 'amount',        label: 'Amount',         type: 'number', editable: true,  wide: false, cls: 'amount mono' },
+    { key: 'vendorName',    label: 'Vendor',         type: 'text',   editable: true,  wide: false },
+    { key: 'invoiceNumber', label: 'Invoice No.',    type: 'text',   editable: true,  wide: false, cls: 'mono' },
+    { key: 'invoiceDate',   label: 'Invoice Date',   type: 'text',   editable: true,  wide: false },
+    { key: 'dueDate',       label: 'Due Date',       type: 'text',   editable: true,  wide: false },
+    { key: 'category',      label: 'Category',       type: 'text',   editable: true,  wide: false },
+    { key: 'submittedBy',   label: 'Submitted By',   type: 'text',   editable: false, wide: false },
+  ];
+
+  // ── State ──
+  let data = {};
+  let editMode = false;
+  let webhookUrl = '';
+
+  // ── Parse URL params ──
+  function init() {
+    const params = new URLSearchParams(window.location.search);
+
+    // Read all params
+    webhookUrl     = params.get('webhookUrl') || '';
+    data.id            = params.get('id') || '';
+    data.invoiceName   = params.get('invoiceName') || '';
+    data.amount        = params.get('amount') || '';
+    data.vendorName    = params.get('vendorName') || '';
+    data.invoiceNumber = params.get('invoiceNumber') || '';
+    data.invoiceDate   = params.get('invoiceDate') || '';
+    data.dueDate       = params.get('dueDate') || '';
+    data.category      = params.get('category') || '';
+    data.submittedBy   = params.get('submittedBy') || '';
+    data.status        = params.get('status') || 'PENDING';
+
+    document.getElementById('loading-state').style.display = 'none';
+
+    // If no id and no invoice name — show no data state
+    if (!data.id && !data.invoiceName) {
+      // Show demo data for direct visits (useful when testing)
+      loadDemo();
+      return;
+    }
+
+    renderPage();
+  }
+
+  function loadDemo() {
+    data = {
+      id: 'INV-2026-001',
+      invoiceName: 'Software Subscription — Q2',
+      amount: '12500.00',
+      vendorName: 'Acme Solutions Pvt. Ltd.',
+      invoiceNumber: 'ACM-9921',
+      invoiceDate: '2026-05-01',
+      dueDate: '2026-05-31',
+      category: 'Software & Licenses',
+      submittedBy: 'Rahul Sharma',
+      status: 'PENDING'
+    };
+    webhookUrl = '';
+    renderPage();
+  }
+
+  function renderPage() {
+    document.getElementById('main-content').style.display = 'block';
+    document.getElementById('header-id').textContent = data.id ? `# ${data.id}` : '—';
+    document.getElementById('meta-id').textContent = data.id || '—';
+    document.getElementById('meta-time').textContent = new Date().toLocaleString('en-IN', {
+      day: '2-digit', month: 'short', year: 'numeric',
+      hour: '2-digit', minute: '2-digit'
+    });
+
+    renderFields();
+  }
+
+  function renderFields() {
+    const grid = document.getElementById('fields-grid');
+    grid.innerHTML = '';
+
+    FIELDS.forEach(f => {
+      const val = data[f.key] || '—';
+      const displayVal = f.key === 'amount' && val !== '—'
+        ? '₹ ' + Number(val).toLocaleString('en-IN', { minimumFractionDigits: 2 })
+        : val;
+
+      const div = document.createElement('div');
+      div.className = 'field';
+      div.innerHTML = `
+        <div class="field-label">${f.label}</div>
+        ${editMode && f.editable
+          ? `<input class="field-input ${f.cls || ''}" id="input-${f.key}"
+               type="${f.type || 'text'}" value="${data[f.key] || ''}"
+               placeholder="${f.label}" />`
+          : `<div class="field-value ${f.cls || ''}">${displayVal}</div>`
+        }
+      `;
+      grid.appendChild(div);
+    });
+  }
+
+  function toggleEdit() {
+    editMode = !editMode;
+    const btn = document.getElementById('edit-toggle');
+    btn.textContent = editMode ? 'Save edits' : 'Edit fields';
+    btn.classList.toggle('active', editMode);
+
+    if (!editMode) {
+      // Save values back to data
+      FIELDS.forEach(f => {
+        if (f.editable) {
+          const inp = document.getElementById('input-' + f.key);
+          if (inp) data[f.key] = inp.value;
+        }
+      });
+    }
+    renderFields();
+  }
+
+  async function submitAction(action) {
+    // If still in edit mode, save first
+    if (editMode) toggleEdit();
+
+    const btnApprove = document.getElementById('btn-approve');
+    const btnReject  = document.getElementById('btn-reject');
+    btnApprove.disabled = true;
+    btnReject.disabled  = true;
+    btnApprove.textContent = 'Submitting…';
+    btnReject.textContent  = 'Submitting…';
+
+    const payload = {
+      id:            data.id,
+      status:        action,
+      invoiceName:   data.invoiceName,
+      amount:        data.amount,
+      vendorName:    data.vendorName,
+      invoiceNumber: data.invoiceNumber,
+      invoiceDate:   data.invoiceDate,
+      dueDate:       data.dueDate,
+      category:      data.category,
+      comments:      document.getElementById('comments').value,
+      processedAt:   new Date().toISOString()
+    };
+
+    // If no webhook URL (demo mode), just show success
+    if (!webhookUrl) {
+      showSuccess(action, payload, true);
+      return;
+    }
+
+    try {
+      const res = await fetch(webhookUrl, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(payload)
+      });
+
+      if (!res.ok) throw new Error(`HTTP ${res.status}`);
+      showSuccess(action, payload, false);
+    } catch (err) {
+      const errEl = document.getElementById('error-state');
+      errEl.style.display = 'block';
+      errEl.textContent = `Failed to send response: ${err.message}. Please try again or contact support.`;
+      btnApprove.disabled = false;
+      btnReject.disabled  = false;
+      btnApprove.innerHTML = `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="width:16px;height:16px"><polyline points="20 6 9 17 4 12"/></svg> Approve Invoice`;
+      btnReject.innerHTML  = `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="width:16px;height:16px"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg> Reject Invoice`;
+    }
+  }
+
+  function showSuccess(action, payload, isDemo) {
+    document.getElementById('main-content').style.display = 'none';
+    const el = document.getElementById('success-state');
+    el.style.display = 'block';
+
+    const isApproved = action === 'Approved';
+    const icon = document.getElementById('success-icon');
+    const svg  = document.getElementById('success-svg');
+    const title = document.getElementById('success-title');
+    const sub   = document.getElementById('success-sub');
+
+    icon.className = `success-icon ${isApproved ? 'approve' : 'reject'}`;
+    icon.style.color = isApproved ? 'var(--approve)' : 'var(--reject)';
+
+    svg.innerHTML = isApproved
+      ? '<polyline points="20 6 9 17 4 12"/>'
+      : '<line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/>';
+
+    title.textContent = isApproved ? 'Invoice Approved' : 'Invoice Rejected';
+    sub.innerHTML = `Invoice <strong>${payload.invoiceName || payload.id}</strong> has been <strong>${action.toLowerCase()}</strong>.<br>
+      ${isDemo ? '<span style="color:var(--text-tertiary);font-size:13px">(Demo mode — no webhook connected)</span>' : 'Make.com has been notified and the sheet will be updated shortly.'}`;
+  }
+
+  // ── Boot ──
+  window.addEventListener('DOMContentLoaded', init);
+</script>
+</body>
+</html>
