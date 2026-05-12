@@ -565,30 +565,20 @@
   let editMode = false;
   let webhookUrl = '';
 
-  // ── Parse URL params ──
-  // Uses href + manual split so decodeURIComponent is applied explicitly.
-  // Handles %20, + encoding, and raw spaces. Falls back gracefully on
-  // malformed percent-sequences (e.g. a stray % in a value).
-  function parseQueryParams() {
-    const qIdx = window.location.href.indexOf('?');
-    if (qIdx === -1) return {};
-    const query = window.location.href.slice(qIdx + 1);
-    const result = {};
-    for (const pair of query.split('&')) {
-      const eqIdx = pair.indexOf('=');
-      if (eqIdx === -1) continue;
-      const key = decodeURIComponent(pair.slice(0, eqIdx));
+  // ── Read data from URL hash ──
+  // Make.com embeds a JSON object in the hash so spaces and special
+  // characters in values never break parsing.
+  // Format: https://example.com/#{"id":"INV-001","invoiceName":"Office Supplies May",...}
+  function init() {
+    let p = {};
+    const hash = window.location.hash.slice(1);
+    if (hash) {
       try {
-        result[key] = decodeURIComponent(pair.slice(eqIdx + 1).replace(/\+/g, ' '));
+        p = JSON.parse(decodeURIComponent(hash));
       } catch {
-        result[key] = pair.slice(eqIdx + 1);
+        p = {};
       }
     }
-    return result;
-  }
-
-  function init() {
-    const p = parseQueryParams();
 
     webhookUrl         = p.webhookUrl     || '';
     data.id            = p.id             || '';
