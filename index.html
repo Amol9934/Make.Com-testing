@@ -566,27 +566,45 @@
   let webhookUrl = '';
 
   // ── Parse URL params ──
-  function init() {
-    const params = new URLSearchParams(window.location.search);
+  // Uses href + manual split so decodeURIComponent is applied explicitly.
+  // Handles %20, + encoding, and raw spaces. Falls back gracefully on
+  // malformed percent-sequences (e.g. a stray % in a value).
+  function parseQueryParams() {
+    const qIdx = window.location.href.indexOf('?');
+    if (qIdx === -1) return {};
+    const query = window.location.href.slice(qIdx + 1);
+    const result = {};
+    for (const pair of query.split('&')) {
+      const eqIdx = pair.indexOf('=');
+      if (eqIdx === -1) continue;
+      const key = decodeURIComponent(pair.slice(0, eqIdx));
+      try {
+        result[key] = decodeURIComponent(pair.slice(eqIdx + 1).replace(/\+/g, ' '));
+      } catch {
+        result[key] = pair.slice(eqIdx + 1);
+      }
+    }
+    return result;
+  }
 
-    // Read all params
-    webhookUrl     = params.get('webhookUrl') || '';
-    data.id            = params.get('id') || '';
-    data.invoiceName   = params.get('invoiceName') || '';
-    data.amount        = params.get('amount') || '';
-    data.vendorName    = params.get('vendorName') || '';
-    data.invoiceNumber = params.get('invoiceNumber') || '';
-    data.invoiceDate   = params.get('invoiceDate') || '';
-    data.dueDate       = params.get('dueDate') || '';
-    data.category      = params.get('category') || '';
-    data.submittedBy   = params.get('submittedBy') || '';
-    data.status        = params.get('status') || 'PENDING';
+  function init() {
+    const p = parseQueryParams();
+
+    webhookUrl         = p.webhookUrl     || '';
+    data.id            = p.id             || '';
+    data.invoiceName   = p.invoiceName    || '';
+    data.amount        = p.amount         || '';
+    data.vendorName    = p.vendorName     || '';
+    data.invoiceNumber = p.invoiceNumber  || '';
+    data.invoiceDate   = p.invoiceDate    || '';
+    data.dueDate       = p.dueDate        || '';
+    data.category      = p.category       || '';
+    data.submittedBy   = p.submittedBy    || '';
+    data.status        = p.status         || 'PENDING';
 
     document.getElementById('loading-state').style.display = 'none';
 
-    // If no id and no invoice name — show no data state
     if (!data.id && !data.invoiceName) {
-      // Show demo data for direct visits (useful when testing)
       loadDemo();
       return;
     }
@@ -687,6 +705,7 @@
       invoiceDate:   data.invoiceDate,
       dueDate:       data.dueDate,
       category:      data.category,
+      submittedBy:   data.submittedBy,
       comments:      document.getElementById('comments').value,
       processedAt:   new Date().toISOString()
     };

@@ -2,9 +2,11 @@
 
 A lightweight, single-page invoice approval interface designed to work with Make.com automations. Reviewers receive a link, inspect invoice details, optionally edit fields, add comments, and approve or reject — the decision is POSTed back to a webhook.
 
+**Live demo:** https://make-com-testing.vercel.app/
+
 ## Usage
 
-Open `index.html` in a browser, or serve it statically:
+Deploy on Vercel or open `index.html` in a browser, or serve it statically:
 
 ```bash
 npx serve .
