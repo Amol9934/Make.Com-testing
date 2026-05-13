@@ -565,32 +565,23 @@
   let editMode = false;
   let webhookUrl = '';
 
-  // ── Read data from URL hash ──
-  // Make.com embeds a JSON object in the hash so spaces and special
-  // characters in values never break parsing.
-  // Format: https://example.com/#{"id":"INV-001","invoiceName":"Office Supplies May",...}
+  // ── Parse URL query parameters ──
+  // URLSearchParams.get() automatically decodes %20 and other percent-encoded
+  // characters, so Make.com values like "Office%20Supplies%20May" work correctly.
   function init() {
-    let p = {};
-    const hash = window.location.hash.slice(1);
-    if (hash) {
-      try {
-        p = JSON.parse(decodeURIComponent(hash));
-      } catch {
-        p = {};
-      }
-    }
+    const params = new URLSearchParams(window.location.search);
 
-    webhookUrl         = p.webhookUrl     || '';
-    data.id            = p.id             || '';
-    data.invoiceName   = p.invoiceName    || '';
-    data.amount        = p.amount         || '';
-    data.vendorName    = p.vendorName     || '';
-    data.invoiceNumber = p.invoiceNumber  || '';
-    data.invoiceDate   = p.invoiceDate    || '';
-    data.dueDate       = p.dueDate        || '';
-    data.category      = p.category       || '';
-    data.submittedBy   = p.submittedBy    || '';
-    data.status        = p.status         || 'PENDING';
+    webhookUrl         = params.get('webhookUrl')     || '';
+    data.id            = params.get('id')             || '';
+    data.invoiceName   = params.get('invoiceName')    || '';
+    data.amount        = params.get('amount')         || '';
+    data.vendorName    = params.get('vendorName')     || '';
+    data.invoiceNumber = params.get('invoiceNumber')  || '';
+    data.invoiceDate   = params.get('invoiceDate')    || '';
+    data.dueDate       = params.get('dueDate')        || '';
+    data.category      = params.get('category')       || '';
+    data.submittedBy   = params.get('submittedBy')    || '';
+    data.status        = params.get('status')         || 'PENDING';
 
     document.getElementById('loading-state').style.display = 'none';
 

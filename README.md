@@ -1,64 +1,77 @@
 # Invoice Review
 
-A lightweight, single-page invoice approval interface designed to work with Make.com automations. Reviewers receive a link, inspect invoice details, optionally edit fields, add comments, and approve or reject — the decision is POSTed back to a webhook.
+A single-page invoice approval interface for Human-in-the-Loop workflows with Make.com. Make.com builds a review URL with invoice data as query parameters and sends it to the approver. The approver clicks the link, reviews the invoice, and approves or rejects it — the decision is POSTed back to a Make.com webhook.
 
-**Live demo:** https://make-com-testing.vercel.app/
+**Live:** https://make-com-testing.vercel.app/
 
-## Usage
+## How it works
 
-Deploy on Vercel or open `index.html` in a browser, or serve it statically:
-
-```bash
-npx serve .
-# or
-python -m http.server 8080
+```
+Make.com builds URL with encoded invoice fields
+          ↓
+Reviewer opens link → page reads query params → displays invoice
+          ↓
+Reviewer approves/rejects → POST to webhookUrl
 ```
 
-No dependencies, no build step.
+## URL format
 
-## URL Parameters
+Make.com should build the URL using `encodeURL()` on each field value so spaces become `%20`:
 
-The page is driven entirely by query parameters. Generate links from your automation with these fields:
-
-| Parameter      | Description                              |
-|----------------|------------------------------------------|
-| `id`           | Unique invoice identifier                |
-| `invoiceName`  | Display name of the invoice              |
-| `amount`       | Numeric amount (displayed as ₹)          |
-| `vendorName`   | Vendor / supplier name                   |
-| `invoiceNumber`| Vendor's invoice reference number        |
-| `invoiceDate`  | Invoice date (e.g. `2026-05-01`)         |
-| `dueDate`      | Payment due date                         |
-| `category`     | Expense category                         |
-| `submittedBy`  | Name of person who submitted the invoice |
-| `status`       | Initial status (default: `PENDING`)      |
-| `webhookUrl`   | Make.com webhook URL to receive the decision |
-
-**Example:**
 ```
-index.html?id=INV-001&invoiceName=Software+Sub&amount=12500&vendorName=Acme&webhookUrl=https://hook.make.com/...
+https://make-com-testing.vercel.app/?id=INV-002
+  &invoiceName=Office%20Supplies%20May
+  &amount=3200
+  &vendorName=Staples%20India
+  &invoiceNumber=STP-4421
+  &invoiceDate=2026-05-03
+  &dueDate=2026-05-20
+  &category=Operations
+  &submittedBy=Priya%20Singh
+  &webhookUrl=https://hook.eu1.make.com/xyz
 ```
 
-If `id` and `invoiceName` are absent, the page loads with demo data and no webhook is called.
+Opening the page without parameters shows demo data — no webhook is called.
 
-## Webhook Payload
+## URL parameters
 
-On approve or reject, the page POSTs JSON to `webhookUrl`:
+| Parameter      | Description                                      |
+|----------------|--------------------------------------------------|
+| `id`           | Unique invoice identifier                        |
+| `invoiceName`  | Display name of the invoice                      |
+| `amount`       | Numeric amount (displayed as ₹)                  |
+| `vendorName`   | Vendor / supplier name                           |
+| `invoiceNumber`| Vendor's invoice reference number                |
+| `invoiceDate`  | Invoice date (e.g. `2026-05-03`)                 |
+| `dueDate`      | Payment due date                                 |
+| `category`     | Expense category                                 |
+| `submittedBy`  | Name of person who submitted the invoice         |
+| `webhookUrl`   | Make.com webhook URL to receive the decision     |
+
+## Webhook payload (sent on approve/reject)
 
 ```json
 {
-  "id": "INV-001",
+  "id": "INV-002",
   "status": "Approved",
-  "invoiceName": "Software Sub",
-  "amount": "12500",
-  "vendorName": "Acme",
-  "invoiceNumber": "ACM-9921",
-  "invoiceDate": "2026-05-01",
-  "dueDate": "2026-05-31",
-  "category": "Software & Licenses",
+  "invoiceName": "Office Supplies May",
+  "amount": "3200",
+  "vendorName": "Staples India",
+  "invoiceNumber": "STP-4421",
+  "invoiceDate": "2026-05-03",
+  "dueDate": "2026-05-20",
+  "category": "Operations",
   "comments": "Looks good.",
-  "processedAt": "2026-05-12T10:30:00.000Z"
+  "processedAt": "2026-05-13T10:30:00.000Z"
 }
 ```
 
-`status` is either `"Approved"` or `"Rejected"`. Edited field values are reflected in the payload.
+`status` is `"Approved"` or `"Rejected"`. If the reviewer edited any field before submitting, the updated values are sent.
+
+## Running locally
+
+No build step — open `index.html` directly in a browser, or:
+
+```bash
+npx serve .
+```
