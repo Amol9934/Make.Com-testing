@@ -994,35 +994,30 @@ async function saveEdit() {
   const btn = document.getElementById('editSaveBtn');
   btn.disabled = true; btn.textContent = 'Saving…';
 
-  const rowValues = [
-    inv.id,
-    document.getElementById('ef-invoiceName').value.trim(),
-    document.getElementById('ef-amount').value.trim(),
-    document.getElementById('ef-vendorName').value.trim(),
-    document.getElementById('ef-invoiceNumber').value.trim(),
-    document.getElementById('ef-invoiceDate').value.trim(),
-    document.getElementById('ef-dueDate').value.trim(),
-    document.getElementById('ef-category').value.trim(),
-    document.getElementById('ef-submittedBy').value.trim(),
-    document.getElementById('ef-status').value,
-    inv.humanAction,
-    document.getElementById('ef-comments').value.trim(),
-    inv.processedAt,
-  ];
-
-  const range = `${SHEET_NAME}!A${inv._rowNum}:M${inv._rowNum}`;
-  const url = `https://sheets.googleapis.com/v4/spreadsheets/${SPREADSHEET_ID}/values/${encodeURIComponent(range)}?valueInputOption=USER_ENTERED&key=${API_KEY}`;
+  const payload = {
+    action:        'edit',
+    rowNumber:     inv._rowNum,
+    id:            inv.id,
+    invoiceName:   document.getElementById('ef-invoiceName').value.trim(),
+    amount:        document.getElementById('ef-amount').value.trim(),
+    vendorName:    document.getElementById('ef-vendorName').value.trim(),
+    invoiceNumber: document.getElementById('ef-invoiceNumber').value.trim(),
+    invoiceDate:   document.getElementById('ef-invoiceDate').value.trim(),
+    dueDate:       document.getElementById('ef-dueDate').value.trim(),
+    category:      document.getElementById('ef-category').value.trim(),
+    submittedBy:   document.getElementById('ef-submittedBy').value.trim(),
+    status:        document.getElementById('ef-status').value,
+    comments:      document.getElementById('ef-comments').value.trim(),
+    processedAt:   new Date().toISOString(),
+  };
 
   try {
-    const res = await fetch(url, {
-      method: 'PUT',
+    const res = await fetch(DASH_WEBHOOK, {
+      method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ range, majorDimension: 'ROWS', values: [rowValues] }),
+      body: JSON.stringify(payload),
     });
-    if (!res.ok) {
-      const body = await res.json().catch(() => ({}));
-      throw new Error(body.error?.message || `HTTP ${res.status}`);
-    }
+    if (!res.ok) throw new Error(`Webhook ${res.status}`);
     showToast('Invoice updated successfully', 'success');
     closeEditModal();
     await loadData(false);
