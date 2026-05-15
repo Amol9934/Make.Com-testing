@@ -243,7 +243,33 @@
     .btn-act.approve:hover { background: var(--green); color: #fff; }
     .btn-act.reject  { background: #fee2e2; color: #b91c1c; }
     .btn-act.reject:hover  { background: var(--red); color: #fff; }
+    .btn-act.edit   { background: #dbeafe; color: #1d4ed8; }
+    .btn-act.edit:hover   { background: var(--blue); color: #fff; }
     .empty-cell { text-align: center; padding: 52px 24px; color: var(--muted); font-size: 14px; }
+
+    /* ── Edit invoice modal ── */
+    .modal.modal-wide { max-width: 580px; }
+    .edit-form-grid {
+      display: grid; grid-template-columns: 1fr 1fr; gap: 12px 16px;
+      max-height: 60vh; overflow-y: auto; padding-right: 4px; margin-bottom: 4px;
+    }
+    .edit-field { display: flex; flex-direction: column; }
+    .edit-field-full { grid-column: 1 / -1; }
+    .edit-field label {
+      font-size: 11px; font-weight: 600; text-transform: uppercase;
+      letter-spacing: .05em; color: var(--muted); margin-bottom: 5px;
+    }
+    .edit-field input, .edit-field select, .edit-field textarea {
+      padding: 8px 10px; border: 1px solid var(--border); border-radius: var(--rs);
+      font-size: 13px; outline: none; font-family: var(--font); color: var(--text);
+      background: var(--bg); transition: border-color .15s, background .15s;
+    }
+    .edit-field input:focus, .edit-field select:focus, .edit-field textarea:focus {
+      border-color: var(--blue); background: #fff;
+    }
+    .edit-field textarea { min-height: 68px; resize: vertical; }
+    .mbtn-ok.save { background: var(--blue); }
+    .mbtn-ok.save:hover { background: #2563eb; }
     .empty-cell .ei { font-size: 36px; margin-bottom: 10px; }
 
     /* ============================================================
@@ -506,6 +532,66 @@
   </div>
 </div>
 
+<!-- Edit invoice modal -->
+<div class="modal-bg" id="editModalBg">
+  <div class="modal modal-wide">
+    <div class="modal-hdr">
+      <h2 id="editModalTitle">Edit Invoice</h2>
+      <button class="modal-x" onclick="closeEditModal()">✕</button>
+    </div>
+    <div class="edit-form-grid">
+      <div class="edit-field">
+        <label>Invoice Name</label>
+        <input type="text" id="ef-invoiceName" placeholder="Invoice name">
+      </div>
+      <div class="edit-field">
+        <label>Amount (₹)</label>
+        <input type="number" id="ef-amount" placeholder="0">
+      </div>
+      <div class="edit-field">
+        <label>Vendor Name</label>
+        <input type="text" id="ef-vendorName" placeholder="Vendor name">
+      </div>
+      <div class="edit-field">
+        <label>Invoice Number</label>
+        <input type="text" id="ef-invoiceNumber" placeholder="Invoice number">
+      </div>
+      <div class="edit-field">
+        <label>Invoice Date</label>
+        <input type="text" id="ef-invoiceDate" placeholder="YYYY-MM-DD">
+      </div>
+      <div class="edit-field">
+        <label>Due Date</label>
+        <input type="text" id="ef-dueDate" placeholder="YYYY-MM-DD">
+      </div>
+      <div class="edit-field">
+        <label>Category</label>
+        <input type="text" id="ef-category" placeholder="Category">
+      </div>
+      <div class="edit-field">
+        <label>Submitted By</label>
+        <input type="text" id="ef-submittedBy" placeholder="Name">
+      </div>
+      <div class="edit-field">
+        <label>Status</label>
+        <select id="ef-status">
+          <option value="PENDING">PENDING</option>
+          <option value="Approved">Approved</option>
+          <option value="Rejected">Rejected</option>
+        </select>
+      </div>
+      <div class="edit-field edit-field-full">
+        <label>Comments</label>
+        <textarea id="ef-comments" placeholder="Add comments…"></textarea>
+      </div>
+    </div>
+    <div class="modal-ftr">
+      <button class="mbtn mbtn-cancel" onclick="closeEditModal()">Cancel</button>
+      <button class="mbtn mbtn-ok save" id="editSaveBtn" onclick="saveEdit()">Save Changes</button>
+    </div>
+  </div>
+</div>
+
 <!-- ============================================================
      REVIEW VIEW
      ============================================================ -->
@@ -645,6 +731,7 @@ function route() {
 let allInvoices      = [];
 let filteredInvoices = [];
 let pendingAction    = null;
+let editingIdx       = null;
 let donutChart       = null;
 let barChart         = null;
 let refreshTimer     = null;
@@ -656,8 +743,10 @@ async function fetchInvoices() {
   const data = await res.json();
   if (data.error) throw new Error(data.error.message);
   return (data.values || []).slice(1)
-    .filter(r => r[0])
-    .map(r => ({
+    .map((r, i) => ({ r, rowNum: i + 2 }))
+    .filter(({ r }) => r[0])
+    .map(({ r, rowNum }) => ({
+      _rowNum:       rowNum,
       id:            r[0]  || '',
       invoiceName:   r[1]  || '',
       amount:        parseFloat(String(r[2]).replace(/[^0-9.]/g, '')) || 0,
@@ -779,10 +868,12 @@ function renderTable() {
     const s = norm(inv.status);
     const bc = s==='approved' ? 'b-approved' : s==='rejected' ? 'b-rejected' : 'b-pending';
     const idx = allInvoices.indexOf(inv);
+    const editBtn = `<button class="btn-act edit" onclick="openEditModal(${idx})">Edit</button>`;
     const actions = (s==='pending'||s==='')
       ? `<button class="btn-act approve" onclick="openModal(${idx},'Approved')">Approve</button>
-         <button class="btn-act reject"  onclick="openModal(${idx},'Rejected')">Reject</button>`
-      : '<span style="color:var(--muted)">—</span>';
+         <button class="btn-act reject"  onclick="openModal(${idx},'Rejected')">Reject</button>
+         ${editBtn}`
+      : editBtn;
     let pat = '—';
     if (inv.processedAt) {
       try { pat = new Date(inv.processedAt).toLocaleString('en-IN',{dateStyle:'short',timeStyle:'short'}); }
@@ -861,7 +952,86 @@ function startAutoRefresh() {
 document.getElementById('modalBg').addEventListener('click', e => {
   if (e.target === document.getElementById('modalBg')) closeModal();
 });
-document.addEventListener('keydown', e => { if (e.key === 'Escape') closeModal(); });
+document.getElementById('editModalBg').addEventListener('click', e => {
+  if (e.target === document.getElementById('editModalBg')) closeEditModal();
+});
+document.addEventListener('keydown', e => {
+  if (e.key === 'Escape') { closeModal(); closeEditModal(); }
+});
+
+function openEditModal(idx) {
+  const inv = allInvoices[idx];
+  if (!inv) return;
+  editingIdx = idx;
+  document.getElementById('editModalTitle').textContent = `Edit Invoice — ${inv.id}`;
+  document.getElementById('ef-invoiceName').value   = inv.invoiceName;
+  document.getElementById('ef-amount').value        = inv.amount || '';
+  document.getElementById('ef-vendorName').value    = inv.vendorName;
+  document.getElementById('ef-invoiceNumber').value = inv.invoiceNumber;
+  document.getElementById('ef-invoiceDate').value   = inv.invoiceDate;
+  document.getElementById('ef-dueDate').value       = inv.dueDate;
+  document.getElementById('ef-category').value      = inv.category;
+  document.getElementById('ef-submittedBy').value   = inv.submittedBy;
+  const s = norm(inv.status);
+  document.getElementById('ef-status').value =
+    s === 'approved' ? 'Approved' : s === 'rejected' ? 'Rejected' : 'PENDING';
+  document.getElementById('ef-comments').value = inv.comments;
+  const btn = document.getElementById('editSaveBtn');
+  btn.disabled = false; btn.textContent = 'Save Changes';
+  document.getElementById('editModalBg').classList.add('active');
+  setTimeout(() => document.getElementById('ef-invoiceName').focus(), 80);
+}
+
+function closeEditModal() {
+  document.getElementById('editModalBg').classList.remove('active');
+  editingIdx = null;
+}
+
+async function saveEdit() {
+  if (editingIdx === null) return;
+  const inv = allInvoices[editingIdx];
+  if (!inv) return;
+  const btn = document.getElementById('editSaveBtn');
+  btn.disabled = true; btn.textContent = 'Saving…';
+
+  const rowValues = [
+    inv.id,
+    document.getElementById('ef-invoiceName').value.trim(),
+    document.getElementById('ef-amount').value.trim(),
+    document.getElementById('ef-vendorName').value.trim(),
+    document.getElementById('ef-invoiceNumber').value.trim(),
+    document.getElementById('ef-invoiceDate').value.trim(),
+    document.getElementById('ef-dueDate').value.trim(),
+    document.getElementById('ef-category').value.trim(),
+    document.getElementById('ef-submittedBy').value.trim(),
+    document.getElementById('ef-status').value,
+    inv.humanAction,
+    document.getElementById('ef-comments').value.trim(),
+    inv.processedAt,
+  ];
+
+  const range = `${SHEET_NAME}!A${inv._rowNum}:M${inv._rowNum}`;
+  const url = `https://sheets.googleapis.com/v4/spreadsheets/${SPREADSHEET_ID}/values/${encodeURIComponent(range)}?valueInputOption=USER_ENTERED&key=${API_KEY}`;
+
+  try {
+    const res = await fetch(url, {
+      method: 'PUT',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ range, majorDimension: 'ROWS', values: [rowValues] }),
+    });
+    if (!res.ok) {
+      const body = await res.json().catch(() => ({}));
+      throw new Error(body.error?.message || `HTTP ${res.status}`);
+    }
+    showToast('Invoice updated successfully', 'success');
+    closeEditModal();
+    await loadData(false);
+  } catch (err) {
+    console.error(err);
+    showToast('Failed to update: ' + err.message, 'error');
+    btn.disabled = false; btn.textContent = 'Save Changes';
+  }
+}
 
 /* ================================================================
    REVIEW PAGE
