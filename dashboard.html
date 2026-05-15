@@ -1,0 +1,780 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Invoice Review Dashboard</title>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
+    <style>
+        :root {
+            --blue:   #3b82f6;
+            --orange: #f97316;
+            --green:  #22c55e;
+            --red:    #ef4444;
+            --purple: #a855f7;
+            --teal:   #14b8a6;
+            --bg:     #f1f5f9;
+            --card:   #ffffff;
+            --text:   #1e293b;
+            --muted:  #64748b;
+            --border: #e2e8f0;
+            --sh:     0 1px 3px rgba(0,0,0,.08), 0 1px 2px rgba(0,0,0,.06);
+            --sh-md:  0 4px 6px -1px rgba(0,0,0,.1), 0 2px 4px -1px rgba(0,0,0,.06);
+            --sh-lg:  0 10px 15px -3px rgba(0,0,0,.1), 0 4px 6px -2px rgba(0,0,0,.05);
+            --r:  12px;
+            --rs: 8px;
+        }
+        *, *::before, *::after { margin:0; padding:0; box-sizing:border-box; }
+
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+            background: var(--bg);
+            color: var(--text);
+            min-height: 100vh;
+        }
+
+        /* ── Header ── */
+        .header {
+            background: var(--card);
+            border-bottom: 1px solid var(--border);
+            padding: 14px 24px;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            position: sticky;
+            top: 0;
+            z-index: 100;
+            box-shadow: var(--sh);
+        }
+        .header h1 { font-size: 20px; font-weight: 700; }
+        .header p  { font-size: 12px; color: var(--muted); margin-top: 2px; }
+        .header-right { display: flex; align-items: center; gap: 12px; }
+        .last-refreshed { font-size: 12px; color: var(--muted); }
+
+        .refresh-btn {
+            display: inline-flex; align-items: center; gap: 6px;
+            padding: 7px 14px;
+            background: var(--blue); color: #fff;
+            border: none; border-radius: var(--rs);
+            cursor: pointer; font-size: 13px; font-weight: 500;
+            transition: background .15s, transform .15s;
+        }
+        .refresh-btn:hover { background: #2563eb; transform: translateY(-1px); }
+        .refresh-btn.spinning .ricon { animation: spin .9s linear infinite; }
+
+        @keyframes spin { to { transform: rotate(360deg); } }
+
+        /* ── Layout ── */
+        .container { max-width: 1400px; margin: 0 auto; padding: 22px 24px; }
+
+        /* ── Loading overlay ── */
+        .loading-overlay {
+            display: none; position: fixed; inset: 0;
+            background: rgba(255,255,255,.82); z-index: 200;
+            align-items: center; justify-content: center; flex-direction: column; gap: 14px;
+        }
+        .loading-overlay.active { display: flex; }
+        .spinner {
+            width: 44px; height: 44px;
+            border: 4px solid var(--border); border-top-color: var(--blue);
+            border-radius: 50%; animation: spin .75s linear infinite;
+        }
+        .loading-overlay span { font-size: 14px; color: var(--muted); }
+
+        /* ── Stats ── */
+        .stats-grid {
+            display: grid;
+            grid-template-columns: repeat(6, 1fr);
+            gap: 14px; margin-bottom: 20px;
+        }
+        @media (max-width:1100px) { .stats-grid { grid-template-columns: repeat(3,1fr); } }
+        @media (max-width:640px)  { .stats-grid { grid-template-columns: repeat(2,1fr); } }
+
+        .stat-card {
+            background: var(--card); border-radius: var(--r);
+            padding: 18px 20px; box-shadow: var(--sh);
+            border-left: 4px solid transparent;
+            transition: transform .2s, box-shadow .2s;
+            overflow: hidden; position: relative;
+        }
+        .stat-card:hover { transform: translateY(-2px); box-shadow: var(--sh-md); }
+        .stat-card::after {
+            content:''; position:absolute; top:-24px; right:-24px;
+            width:80px; height:80px; border-radius:50%; opacity:.07;
+        }
+        .stat-card.blue   { border-color: var(--blue);   } .stat-card.blue::after   { background: var(--blue);   }
+        .stat-card.orange { border-color: var(--orange);  } .stat-card.orange::after { background: var(--orange);  }
+        .stat-card.green  { border-color: var(--green);   } .stat-card.green::after  { background: var(--green);   }
+        .stat-card.red    { border-color: var(--red);     } .stat-card.red::after    { background: var(--red);     }
+        .stat-card.purple { border-color: var(--purple);  } .stat-card.purple::after { background: var(--purple);  }
+        .stat-card.teal   { border-color: var(--teal);    } .stat-card.teal::after   { background: var(--teal);    }
+
+        .stat-label {
+            font-size: 11px; font-weight: 600; text-transform: uppercase;
+            letter-spacing: .05em; color: var(--muted); margin-bottom: 8px;
+        }
+        .stat-value {
+            font-size: 24px; font-weight: 700; line-height: 1;
+            white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+        }
+        .stat-card.blue   .stat-value { color: var(--blue);   }
+        .stat-card.orange .stat-value { color: var(--orange);  }
+        .stat-card.green  .stat-value { color: var(--green);   }
+        .stat-card.red    .stat-value { color: var(--red);     }
+        .stat-card.purple .stat-value { color: var(--purple);  }
+        .stat-card.teal   .stat-value { color: var(--teal);    }
+        .stat-value.small { font-size: 18px; }
+
+        /* ── Charts ── */
+        .charts-row {
+            display: grid;
+            grid-template-columns: 280px 1fr;
+            gap: 14px; margin-bottom: 20px;
+        }
+        @media (max-width:860px) { .charts-row { grid-template-columns: 1fr; } }
+
+        .chart-card {
+            background: var(--card); border-radius: var(--r);
+            padding: 20px; box-shadow: var(--sh);
+        }
+        .chart-title {
+            font-size: 14px; font-weight: 600; margin-bottom: 14px; color: var(--text);
+        }
+        .donut-wrap { height: 230px; display: flex; align-items: center; justify-content: center; }
+        .bar-wrap   { height: 230px; position: relative; }
+
+        /* ── Toolbar ── */
+        .toolbar {
+            background: var(--card); border-radius: var(--r);
+            padding: 14px 18px; display: flex; align-items: center;
+            gap: 10px; margin-bottom: 14px; box-shadow: var(--sh); flex-wrap: wrap;
+        }
+        .search-box { flex: 1; min-width: 180px; position: relative; }
+        .search-box input {
+            width: 100%; padding: 8px 10px 8px 34px;
+            border: 1px solid var(--border); border-radius: var(--rs);
+            font-size: 13px; outline: none; background: var(--bg);
+            transition: border-color .15s, background .15s;
+        }
+        .search-box input:focus { border-color: var(--blue); background: #fff; }
+        .sicon {
+            position: absolute; left: 10px; top: 50%;
+            transform: translateY(-50%); color: var(--muted); pointer-events: none;
+        }
+        .filter-sel {
+            padding: 8px 30px 8px 10px; border: 1px solid var(--border);
+            border-radius: var(--rs); font-size: 13px; outline: none;
+            cursor: pointer; background: var(--bg); color: var(--text);
+            appearance: none;
+            background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='10' height='10' viewBox='0 0 10 10'%3E%3Cpath fill='%2364748b' d='M5 7L0 2h10z'/%3E%3C/svg%3E");
+            background-repeat: no-repeat; background-position: right 9px center;
+            transition: border-color .15s;
+        }
+        .filter-sel:focus { border-color: var(--blue); }
+        .result-count { font-size: 12px; color: var(--muted); margin-left: auto; white-space: nowrap; }
+
+        /* ── Table ── */
+        .table-card { background: var(--card); border-radius: var(--r); box-shadow: var(--sh); overflow: hidden; }
+        .table-wrap  { overflow-x: auto; }
+
+        table { width: 100%; border-collapse: collapse; font-size: 13px; }
+        thead th {
+            padding: 11px 14px; text-align: left;
+            font-size: 11px; font-weight: 600; text-transform: uppercase;
+            letter-spacing: .05em; color: var(--muted);
+            background: #f8fafc; border-bottom: 1px solid var(--border);
+            white-space: nowrap;
+        }
+        tbody tr { border-bottom: 1px solid var(--border); transition: background .12s; }
+        tbody tr:last-child { border-bottom: none; }
+        tbody tr:hover { background: #f8fafc; }
+        tbody td { padding: 11px 14px; vertical-align: middle; }
+
+        .cell-id   { font-weight: 600; white-space: nowrap; }
+        .cell-amt  { font-weight: 600; font-variant-numeric: tabular-nums; white-space: nowrap; }
+        .cell-trunc { max-width: 140px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+
+        /* ── Badges ── */
+        .badge {
+            display: inline-flex; align-items: center;
+            padding: 3px 9px; border-radius: 999px;
+            font-size: 10px; font-weight: 700;
+            text-transform: uppercase; letter-spacing: .06em;
+        }
+        .b-pending  { background: #fff7ed; color: #c2410c; border: 1px solid #fed7aa; }
+        .b-approved { background: #f0fdf4; color: #15803d; border: 1px solid #bbf7d0; }
+        .b-rejected { background: #fef2f2; color: #b91c1c; border: 1px solid #fecaca; }
+
+        /* ── Action buttons ── */
+        .btn-act {
+            padding: 4px 10px; border-radius: 6px; border: none;
+            cursor: pointer; font-size: 12px; font-weight: 600;
+            transition: background .15s, color .15s; margin-right: 4px;
+        }
+        .btn-act.approve { background: #dcfce7; color: #15803d; }
+        .btn-act.approve:hover { background: var(--green); color: #fff; }
+        .btn-act.reject  { background: #fee2e2; color: #b91c1c; }
+        .btn-act.reject:hover  { background: var(--red);   color: #fff; }
+
+        .empty-cell {
+            text-align: center; padding: 52px 24px;
+            color: var(--muted); font-size: 14px;
+        }
+        .empty-cell .ei { font-size: 36px; margin-bottom: 10px; }
+
+        /* ── Modal ── */
+        .modal-bg {
+            display: none; position: fixed; inset: 0;
+            background: rgba(0,0,0,.48); z-index: 300;
+            align-items: center; justify-content: center; padding: 16px;
+        }
+        .modal-bg.active { display: flex; }
+        .modal {
+            background: var(--card); border-radius: var(--r);
+            padding: 26px; width: 100%; max-width: 440px;
+            box-shadow: var(--sh-lg); animation: mIn .2s ease;
+        }
+        @keyframes mIn {
+            from { opacity:0; transform: translateY(-10px) scale(.97); }
+            to   { opacity:1; transform: translateY(0)    scale(1);    }
+        }
+        .modal-hdr {
+            display: flex; align-items: center;
+            justify-content: space-between; margin-bottom: 14px;
+        }
+        .modal-hdr h2 { font-size: 17px; font-weight: 700; }
+        .modal-x {
+            width: 28px; height: 28px; border: none; background: var(--bg);
+            border-radius: 6px; cursor: pointer; font-size: 14px;
+            display: flex; align-items: center; justify-content: center;
+            color: var(--muted); transition: background .15s;
+        }
+        .modal-x:hover { background: var(--border); }
+        .modal-info {
+            background: var(--bg); border-radius: var(--rs);
+            padding: 12px 14px; margin-bottom: 14px; font-size: 13px;
+            line-height: 1.7; color: var(--muted);
+        }
+        .modal-info strong { color: var(--text); }
+        .modal-lbl { font-size: 13px; font-weight: 600; margin-bottom: 7px; }
+        .modal-ta {
+            width: 100%; padding: 9px 11px;
+            border: 1px solid var(--border); border-radius: var(--rs);
+            font-size: 13px; resize: vertical; min-height: 76px;
+            outline: none; font-family: inherit; transition: border-color .15s;
+        }
+        .modal-ta:focus { border-color: var(--blue); }
+        .modal-ftr { display: flex; gap: 8px; margin-top: 14px; }
+        .mbtn {
+            flex: 1; padding: 10px; border: none; border-radius: var(--rs);
+            font-size: 14px; font-weight: 600; cursor: pointer; transition: all .15s;
+        }
+        .mbtn-cancel { background: var(--bg); color: var(--muted); }
+        .mbtn-cancel:hover { background: var(--border); }
+        .mbtn-ok { color: #fff; }
+        .mbtn-ok.approve { background: var(--green); }
+        .mbtn-ok.approve:hover { background: #16a34a; }
+        .mbtn-ok.reject  { background: var(--red);   }
+        .mbtn-ok.reject:hover  { background: #dc2626; }
+        .mbtn-ok:disabled { opacity: .55; cursor: not-allowed; }
+
+        /* ── Toast ── */
+        .toast-wrap {
+            position: fixed; bottom: 22px; right: 22px;
+            z-index: 400; display: flex; flex-direction: column; gap: 8px;
+        }
+        .toast {
+            padding: 11px 16px; border-radius: var(--rs);
+            background: var(--card); box-shadow: var(--sh-lg);
+            font-size: 13px; font-weight: 500;
+            display: flex; align-items: center; gap: 9px;
+            border-left: 4px solid; min-width: 240px;
+            animation: tIn .25s ease;
+        }
+        @keyframes tIn { from { opacity:0; transform: translateX(18px); } to { opacity:1; transform: none; } }
+        .toast.success { border-color: var(--green); }
+        .toast.error   { border-color: var(--red);   }
+        .toast .tic { font-size: 15px; }
+    </style>
+</head>
+<body>
+
+<!-- Loading overlay -->
+<div class="loading-overlay" id="loadingOverlay">
+    <div class="spinner"></div>
+    <span>Loading invoices…</span>
+</div>
+
+<!-- Header -->
+<header class="header">
+    <div>
+        <h1>Invoice Review Dashboard</h1>
+        <p>Monitor and manage invoice approvals</p>
+    </div>
+    <div class="header-right">
+        <span class="last-refreshed" id="lastRefreshed"></span>
+        <button class="refresh-btn" id="refreshBtn" onclick="loadData()">
+            <svg class="ricon" width="13" height="13" viewBox="0 0 24 24" fill="none"
+                 stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+                <polyline points="23 4 23 10 17 10"/>
+                <polyline points="1 20 1 14 7 14"/>
+                <path d="M3.51 9a9 9 0 0 1 14.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0 0 20.49 15"/>
+            </svg>
+            Refresh
+        </button>
+    </div>
+</header>
+
+<div class="container">
+
+    <!-- Stats -->
+    <div class="stats-grid">
+        <div class="stat-card blue">
+            <div class="stat-label">Total Invoices</div>
+            <div class="stat-value" id="sTotal">—</div>
+        </div>
+        <div class="stat-card orange">
+            <div class="stat-label">Pending</div>
+            <div class="stat-value" id="sPending">—</div>
+        </div>
+        <div class="stat-card green">
+            <div class="stat-label">Approved</div>
+            <div class="stat-value" id="sApproved">—</div>
+        </div>
+        <div class="stat-card red">
+            <div class="stat-label">Rejected</div>
+            <div class="stat-value" id="sRejected">—</div>
+        </div>
+        <div class="stat-card purple">
+            <div class="stat-label">Amount Pending</div>
+            <div class="stat-value small" id="sAmtPending">—</div>
+        </div>
+        <div class="stat-card teal">
+            <div class="stat-label">Amount Approved</div>
+            <div class="stat-value small" id="sAmtApproved">—</div>
+        </div>
+    </div>
+
+    <!-- Charts -->
+    <div class="charts-row">
+        <div class="chart-card">
+            <div class="chart-title">Status Breakdown</div>
+            <div class="donut-wrap"><canvas id="donutChart"></canvas></div>
+        </div>
+        <div class="chart-card">
+            <div class="chart-title">Total Amount by Category (₹)</div>
+            <div class="bar-wrap"><canvas id="barChart"></canvas></div>
+        </div>
+    </div>
+
+    <!-- Toolbar -->
+    <div class="toolbar">
+        <div class="search-box">
+            <svg class="sicon" width="14" height="14" viewBox="0 0 24 24" fill="none"
+                 stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                <circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/>
+            </svg>
+            <input type="text" id="searchInput"
+                   placeholder="Search by invoice name or vendor…"
+                   oninput="applyFilters()">
+        </div>
+        <select class="filter-sel" id="statusFilter" onchange="applyFilters()">
+            <option value="">All Status</option>
+            <option value="pending">Pending</option>
+            <option value="approved">Approved</option>
+            <option value="rejected">Rejected</option>
+        </select>
+        <span class="result-count" id="resultCount"></span>
+    </div>
+
+    <!-- Table -->
+    <div class="table-card">
+        <div class="table-wrap">
+            <table>
+                <thead>
+                    <tr>
+                        <th>ID</th>
+                        <th>Invoice Name</th>
+                        <th>Amount</th>
+                        <th>Vendor</th>
+                        <th>Category</th>
+                        <th>Submitted By</th>
+                        <th>Status</th>
+                        <th>Human Action</th>
+                        <th>Comments</th>
+                        <th>Processed At</th>
+                        <th>Actions</th>
+                    </tr>
+                </thead>
+                <tbody id="tableBody">
+                    <tr><td colspan="11" class="empty-cell">
+                        <div class="ei">⏳</div>Loading data…
+                    </td></tr>
+                </tbody>
+            </table>
+        </div>
+    </div>
+
+</div>
+
+<!-- Approve/Reject Modal -->
+<div class="modal-bg" id="modalBg">
+    <div class="modal">
+        <div class="modal-hdr">
+            <h2 id="modalTitle">Approve Invoice</h2>
+            <button class="modal-x" onclick="closeModal()">✕</button>
+        </div>
+        <div class="modal-info" id="modalInfo"></div>
+        <div class="modal-lbl">Comment <span style="color:var(--muted);font-weight:400">(optional)</span></div>
+        <textarea class="modal-ta" id="modalComment" placeholder="Add a comment…"></textarea>
+        <div class="modal-ftr">
+            <button class="mbtn mbtn-cancel" onclick="closeModal()">Cancel</button>
+            <button class="mbtn mbtn-ok" id="modalOkBtn" onclick="confirmAction()">Confirm</button>
+        </div>
+    </div>
+</div>
+
+<!-- Toast container -->
+<div class="toast-wrap" id="toastWrap"></div>
+
+<script>
+/* ── Config ── */
+const API_KEY        = 'AIzaSyBeoU16PA05tkXPy9IfZ1lFUXi3M-Aw8Mk';
+const SPREADSHEET_ID = '16ZZQUiashuNZahvp5_dMpmiZQYXxEy8hLYpCzq1oRkw';
+const SHEET_NAME     = 'Sheet1';
+const WEBHOOK_URL    = 'https://hook.eu1.make.com/8ngkgkncwoop57w6yuuwmutuiqr259pz';
+const AUTO_REFRESH   = 60_000;
+
+/* ── State ── */
+let allInvoices      = [];
+let filteredInvoices = [];
+let pendingAction    = null;
+let donutChart       = null;
+let barChart         = null;
+let refreshTimer     = null;
+
+/* ── Fetch ── */
+async function fetchInvoices() {
+    const url = `https://sheets.googleapis.com/v4/spreadsheets/${SPREADSHEET_ID}/values/${SHEET_NAME}?key=${API_KEY}`;
+    const res = await fetch(url);
+    if (!res.ok) throw new Error(`Sheets API ${res.status}: ${res.statusText}`);
+    const data = await res.json();
+    if (data.error) throw new Error(data.error.message);
+    const rows = (data.values || []).slice(1);
+    return rows
+        .filter(r => r[0])
+        .map(r => ({
+            id:            r[0]  || '',
+            invoiceName:   r[1]  || '',
+            amount:        parseFloat(String(r[2]).replace(/[^0-9.]/g, '')) || 0,
+            vendorName:    r[3]  || '',
+            invoiceNumber: r[4]  || '',
+            invoiceDate:   r[5]  || '',
+            dueDate:       r[6]  || '',
+            category:      r[7]  || '',
+            submittedBy:   r[8]  || '',
+            status:        r[9]  || '',
+            humanAction:   r[10] || '',
+            comments:      r[11] || '',
+            processedAt:   r[12] || '',
+        }));
+}
+
+async function loadData(spinner = true) {
+    if (spinner) showLoading(true);
+    const btn = document.getElementById('refreshBtn');
+    btn.classList.add('spinning');
+    try {
+        allInvoices = await fetchInvoices();
+        updateStats();
+        renderCharts();
+        applyFilters();
+        document.getElementById('lastRefreshed').textContent =
+            'Updated ' + new Date().toLocaleTimeString();
+    } catch (err) {
+        console.error(err);
+        showToast('Failed to load: ' + err.message, 'error');
+    } finally {
+        showLoading(false);
+        btn.classList.remove('spinning');
+    }
+}
+
+/* ── Helpers ── */
+const norm = s => (s || '').trim().toLowerCase();
+
+function inr(n) {
+    if (n == null || n === '') return '—';
+    return '₹' + Number(n).toLocaleString('en-IN', { maximumFractionDigits: 0 });
+}
+
+function esc(s) {
+    return String(s || '')
+        .replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;')
+        .replace(/"/g,'&quot;');
+}
+
+function showLoading(v) {
+    document.getElementById('loadingOverlay').classList.toggle('active', v);
+}
+
+/* ── Stats ── */
+function updateStats() {
+    const pending  = allInvoices.filter(i => norm(i.status) === 'pending');
+    const approved = allInvoices.filter(i => norm(i.status) === 'approved');
+    const rejected = allInvoices.filter(i => norm(i.status) === 'rejected');
+    const sum      = arr => arr.reduce((s, i) => s + i.amount, 0);
+
+    document.getElementById('sTotal').textContent      = allInvoices.length;
+    document.getElementById('sPending').textContent    = pending.length;
+    document.getElementById('sApproved').textContent   = approved.length;
+    document.getElementById('sRejected').textContent   = rejected.length;
+    document.getElementById('sAmtPending').textContent  = inr(sum(pending));
+    document.getElementById('sAmtApproved').textContent = inr(sum(approved));
+}
+
+/* ── Charts ── */
+function renderCharts() {
+    renderDonut();
+    renderBar();
+}
+
+function renderDonut() {
+    const counts = [
+        allInvoices.filter(i => norm(i.status) === 'pending').length,
+        allInvoices.filter(i => norm(i.status) === 'approved').length,
+        allInvoices.filter(i => norm(i.status) === 'rejected').length,
+    ];
+    if (donutChart) {
+        donutChart.data.datasets[0].data = counts;
+        donutChart.update();
+        return;
+    }
+    donutChart = new Chart(
+        document.getElementById('donutChart').getContext('2d'), {
+        type: 'doughnut',
+        data: {
+            labels: ['Pending', 'Approved', 'Rejected'],
+            datasets: [{ data: counts,
+                backgroundColor: ['#f97316','#22c55e','#ef4444'],
+                borderWidth: 0, hoverOffset: 8 }]
+        },
+        options: {
+            responsive: true, maintainAspectRatio: true, cutout: '65%',
+            plugins: {
+                legend: {
+                    position: 'bottom',
+                    labels: { padding: 16, font: { size: 12 }, usePointStyle: true }
+                },
+                tooltip: { callbacks: { label: c => `  ${c.label}: ${c.raw}` } }
+            }
+        }
+    });
+}
+
+function renderBar() {
+    const map = {};
+    allInvoices.forEach(i => {
+        const cat = i.category || 'Uncategorized';
+        map[cat] = (map[cat] || 0) + i.amount;
+    });
+    const labels = Object.keys(map);
+    const values = Object.values(map);
+    const palette = ['#3b82f6','#f97316','#22c55e','#ef4444','#a855f7','#14b8a6','#f59e0b','#ec4899','#06b6d4'];
+    const colors  = labels.map((_, i) => palette[i % palette.length]);
+
+    if (barChart) {
+        barChart.data.labels = labels;
+        barChart.data.datasets[0].data = values;
+        barChart.data.datasets[0].backgroundColor = colors;
+        barChart.update();
+        return;
+    }
+    barChart = new Chart(
+        document.getElementById('barChart').getContext('2d'), {
+        type: 'bar',
+        data: {
+            labels,
+            datasets: [{ label: '₹', data: values, backgroundColor: colors,
+                borderRadius: 6, borderSkipped: false }]
+        },
+        options: {
+            responsive: true, maintainAspectRatio: false,
+            plugins: {
+                legend: { display: false },
+                tooltip: { callbacks: { label: c => '  ₹' + c.raw.toLocaleString('en-IN') } }
+            },
+            scales: {
+                x: { grid: { display: false }, ticks: { font: { size: 11 } } },
+                y: {
+                    grid: { color: '#f1f5f9' },
+                    ticks: {
+                        font: { size: 11 },
+                        callback: v => v >= 1e5 ? '₹' + (v/1e5).toFixed(1) + 'L'
+                                     : v >= 1000  ? '₹' + (v/1000).toFixed(0)  + 'K' : v
+                    }
+                }
+            }
+        }
+    });
+}
+
+/* ── Filter + Table ── */
+function applyFilters() {
+    const q  = document.getElementById('searchInput').value.toLowerCase();
+    const st = document.getElementById('statusFilter').value.toLowerCase();
+
+    filteredInvoices = allInvoices.filter(inv => {
+        const matchQ  = !q  || inv.invoiceName.toLowerCase().includes(q) || inv.vendorName.toLowerCase().includes(q);
+        const matchSt = !st || norm(inv.status) === st;
+        return matchQ && matchSt;
+    });
+
+    document.getElementById('resultCount').textContent =
+        `${filteredInvoices.length} of ${allInvoices.length} invoices`;
+    renderTable();
+}
+
+function renderTable() {
+    const tbody = document.getElementById('tableBody');
+    if (!filteredInvoices.length) {
+        tbody.innerHTML = `<tr><td colspan="11" class="empty-cell">
+            <div class="ei">🔍</div>No invoices match your filters</td></tr>`;
+        return;
+    }
+
+    tbody.innerHTML = filteredInvoices.map(inv => {
+        const s = norm(inv.status);
+        const badgeClass = s === 'approved' ? 'b-approved'
+                         : s === 'rejected' ? 'b-rejected'
+                         : 'b-pending';
+        const badgeLabel = inv.status || 'PENDING';
+
+        const idx = allInvoices.indexOf(inv);
+        const actions = (s === 'pending' || s === '')
+            ? `<button class="btn-act approve" onclick="openModal(${idx},'Approved')">Approve</button>
+               <button class="btn-act reject"  onclick="openModal(${idx},'Rejected')">Reject</button>`
+            : '<span style="color:var(--muted)">—</span>';
+
+        let pat = '—';
+        if (inv.processedAt) {
+            try {
+                pat = new Date(inv.processedAt).toLocaleString('en-IN',
+                    { dateStyle:'short', timeStyle:'short' });
+            } catch(_) { pat = inv.processedAt; }
+        }
+
+        return `<tr>
+            <td class="cell-id">${esc(inv.id)}</td>
+            <td class="cell-trunc" title="${esc(inv.invoiceName)}">${esc(inv.invoiceName)}</td>
+            <td class="cell-amt">${inr(inv.amount)}</td>
+            <td class="cell-trunc" title="${esc(inv.vendorName)}">${esc(inv.vendorName)}</td>
+            <td>${esc(inv.category) || '—'}</td>
+            <td>${esc(inv.submittedBy) || '—'}</td>
+            <td><span class="badge ${badgeClass}">${esc(badgeLabel)}</span></td>
+            <td>${esc(inv.humanAction) || '—'}</td>
+            <td class="cell-trunc" title="${esc(inv.comments)}">${esc(inv.comments) || '—'}</td>
+            <td style="white-space:nowrap;font-size:12px">${pat}</td>
+            <td style="white-space:nowrap">${actions}</td>
+        </tr>`;
+    }).join('');
+}
+
+/* ── Modal ── */
+function openModal(idx, action) {
+    const inv = allInvoices[idx];
+    if (!inv) return;
+    pendingAction = { inv, action };
+
+    const isApprove = action === 'Approved';
+    const titleEl = document.getElementById('modalTitle');
+    titleEl.textContent = isApprove ? 'Approve Invoice' : 'Reject Invoice';
+    titleEl.style.color = isApprove ? 'var(--green)' : 'var(--red)';
+
+    document.getElementById('modalInfo').innerHTML =
+        `<strong>${esc(inv.invoiceName)}</strong><br>
+         Amount: <strong>${inr(inv.amount)}</strong> &nbsp;|&nbsp; Vendor: <strong>${esc(inv.vendorName)}</strong><br>
+         Invoice #: ${esc(inv.invoiceNumber) || '—'} &nbsp;|&nbsp; Date: ${esc(inv.invoiceDate) || '—'}`;
+
+    document.getElementById('modalComment').value = '';
+
+    const btn = document.getElementById('modalOkBtn');
+    btn.textContent = isApprove ? 'Approve' : 'Reject';
+    btn.className   = `mbtn mbtn-ok ${isApprove ? 'approve' : 'reject'}`;
+    btn.disabled    = false;
+
+    document.getElementById('modalBg').classList.add('active');
+    setTimeout(() => document.getElementById('modalComment').focus(), 80);
+}
+
+function closeModal() {
+    document.getElementById('modalBg').classList.remove('active');
+    pendingAction = null;
+}
+
+async function confirmAction() {
+    if (!pendingAction) return;
+    const { inv, action } = pendingAction;
+    const comment = document.getElementById('modalComment').value.trim();
+    const btn = document.getElementById('modalOkBtn');
+    btn.disabled = true;
+    btn.textContent = 'Submitting…';
+
+    const payload = {
+        id:          inv.id,
+        status:      action,
+        comments:    comment,
+        processedAt: new Date().toISOString(),
+    };
+
+    try {
+        const res = await fetch(WEBHOOK_URL, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(payload),
+        });
+        if (!res.ok) throw new Error(`Webhook ${res.status}`);
+
+        showToast(`${inv.id} ${action.toLowerCase()} successfully`, 'success');
+        closeModal();
+        await loadData(false);
+    } catch (err) {
+        console.error(err);
+        showToast('Failed: ' + err.message, 'error');
+        btn.disabled = false;
+        btn.textContent = action === 'Approved' ? 'Approve' : 'Reject';
+    }
+}
+
+/* ── Toast ── */
+function showToast(msg, type = 'success') {
+    const wrap = document.getElementById('toastWrap');
+    const el   = document.createElement('div');
+    el.className = `toast ${type}`;
+    el.innerHTML = `<span class="tic">${type === 'success' ? '✓' : '✕'}</span><span>${esc(msg)}</span>`;
+    wrap.appendChild(el);
+    setTimeout(() => el.remove(), 4000);
+}
+
+/* ── Close modal on backdrop click ── */
+document.getElementById('modalBg').addEventListener('click', e => {
+    if (e.target === document.getElementById('modalBg')) closeModal();
+});
+
+/* ── Close modal on Escape ── */
+document.addEventListener('keydown', e => {
+    if (e.key === 'Escape') closeModal();
+});
+
+/* ── Auto-refresh ── */
+function startAutoRefresh() {
+    clearInterval(refreshTimer);
+    refreshTimer = setInterval(() => loadData(false), AUTO_REFRESH);
+}
+
+/* ── Init ── */
+loadData();
+startAutoRefresh();
+</script>
+</body>
+</html>
