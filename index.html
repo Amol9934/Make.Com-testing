@@ -1123,6 +1123,9 @@ function toggleEdit() {
 }
 
 async function submitReviewAction(action) {
+  console.log('[submitAction] called with action:', action);
+  console.log('[submitAction] current rvData:', rvData);
+
   if (rvEdit) {
     FIELDS.forEach(f => {
       if (f.editable) {
@@ -1158,6 +1161,8 @@ async function submitReviewAction(action) {
     processedAt:   new Date().toISOString(),
   };
 
+  console.log('[submitAction] payload being sent:', payload);
+
   if (!rvWebhook) { showReviewSuccess(action, payload, true); return; }
 
   try {
@@ -1165,6 +1170,7 @@ async function submitReviewAction(action) {
       method: 'POST', headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify(payload),
     });
+    console.log('[submitAction] webhook response status:', res.status);
     if (!res.ok) throw new Error(`HTTP ${res.status}`);
     showReviewSuccess(action, payload, false);
   } catch (err) {
