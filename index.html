@@ -234,8 +234,65 @@
     .cell-amt { font-weight: 600; font-variant-numeric: tabular-nums; white-space: nowrap; }
     .cell-trunc { max-width: 140px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 
+    /* ── Pagination ── */
+    .pagination {
+      display: flex; align-items: center; justify-content: space-between;
+      padding: 12px 18px; border-top: 1px solid var(--border); flex-wrap: wrap; gap: 8px;
+    }
+    .pg-info { font-size: 13px; color: var(--muted); }
+    .pg-btns { display: flex; align-items: center; gap: 4px; }
+    .pg-btn {
+      min-width: 32px; height: 32px; padding: 0 8px;
+      border: 1px solid var(--border); border-radius: var(--rs);
+      background: var(--card); color: var(--text);
+      font-size: 13px; font-weight: 500; cursor: pointer;
+      font-family: var(--font); transition: all .15s;
+      display: flex; align-items: center; justify-content: center;
+    }
+    .pg-btn:hover:not(:disabled) { background: var(--bg); border-color: #cbd5e1; }
+    .pg-btn.active { background: var(--blue); color: #fff; border-color: var(--blue); }
+    .pg-btn:disabled { opacity: .4; cursor: not-allowed; }
+    .pg-ellipsis { font-size: 13px; color: var(--muted); padding: 0 6px; line-height: 32px; }
+
+    .btn-act {
+      padding: 4px 10px; border-radius: 6px; border: none;
+      cursor: pointer; font-size: 12px; font-weight: 600;
+      transition: background .15s, color .15s; margin-right: 4px; font-family: var(--font);
+    }
+    .btn-act.approve { background: #dcfce7; color: #15803d; }
+    .btn-act.approve:hover { background: var(--green); color: #fff; }
+    .btn-act.reject  { background: #fee2e2; color: #b91c1c; }
+    .btn-act.reject:hover  { background: var(--red); color: #fff; }
+    .btn-act.edit    { background: #dbeafe; color: #1d4ed8; }
+    .btn-act.edit:hover    { background: var(--blue); color: #fff; }
+    .btn-act.status  { background: #f3e8ff; color: #7e22ce; }
+    .btn-act.status:hover  { background: #a855f7; color: #fff; }
     .empty-cell { text-align: center; padding: 52px 24px; color: var(--muted); font-size: 14px; }
     .empty-cell .ei { font-size: 36px; margin-bottom: 10px; }
+
+    /* ── Edit invoice modal ── */
+    .modal.modal-wide { max-width: 580px; }
+    .edit-form-grid {
+      display: grid; grid-template-columns: 1fr 1fr; gap: 12px 16px;
+      max-height: 60vh; overflow-y: auto; padding-right: 4px; margin-bottom: 4px;
+    }
+    .edit-field { display: flex; flex-direction: column; }
+    .edit-field-full { grid-column: 1 / -1; }
+    .edit-field label {
+      font-size: 11px; font-weight: 600; text-transform: uppercase;
+      letter-spacing: .05em; color: var(--muted); margin-bottom: 5px;
+    }
+    .edit-field input, .edit-field select, .edit-field textarea {
+      padding: 8px 10px; border: 1px solid var(--border); border-radius: var(--rs);
+      font-size: 13px; outline: none; font-family: var(--font); color: var(--text);
+      background: var(--bg); transition: border-color .15s, background .15s;
+    }
+    .edit-field input:focus, .edit-field select:focus, .edit-field textarea:focus {
+      border-color: var(--blue); background: #fff;
+    }
+    .edit-field textarea { min-height: 68px; resize: vertical; }
+    .mbtn-ok.save { background: var(--blue); }
+    .mbtn-ok.save:hover { background: #2563eb; }
 
     /* ============================================================
        REVIEW PAGE STYLES
@@ -467,14 +524,15 @@
             <tr>
               <th>ID</th><th>Invoice Name</th><th>Amount</th><th>Vendor</th>
               <th>Category</th><th>Submitted By</th><th>Status</th>
-              <th>Human Action</th><th>Comments</th><th>Processed At</th>
+              <th>Human Action</th><th>Comments</th><th>Processed At</th><th>Actions</th>
             </tr>
           </thead>
           <tbody id="tableBody">
-            <tr><td colspan="10" class="empty-cell"><div class="ei">⏳</div>Loading data…</td></tr>
+            <tr><td colspan="11" class="empty-cell"><div class="ei">⏳</div>Loading data…</td></tr>
           </tbody>
         </table>
       </div>
+      <div class="pagination" id="pagination"></div>
     </div>
 
   </div>
@@ -493,6 +551,79 @@
     <div class="modal-ftr">
       <button class="mbtn mbtn-cancel" onclick="closeModal()">Cancel</button>
       <button class="mbtn mbtn-ok" id="modalOkBtn" onclick="confirmAction()">Confirm</button>
+    </div>
+  </div>
+</div>
+
+<!-- Edit invoice modal -->
+<div class="modal-bg" id="editModalBg">
+  <div class="modal modal-wide">
+    <div class="modal-hdr">
+      <h2 id="editModalTitle">Edit Invoice</h2>
+      <button class="modal-x" onclick="closeEditModal()">✕</button>
+    </div>
+    <div class="edit-form-grid">
+      <div class="edit-field">
+        <label>Invoice Name</label>
+        <input type="text" id="ef-invoiceName" placeholder="Invoice name">
+      </div>
+      <div class="edit-field">
+        <label>Amount (₹)</label>
+        <input type="number" id="ef-amount" placeholder="0">
+      </div>
+      <div class="edit-field">
+        <label>Vendor Name</label>
+        <input type="text" id="ef-vendorName" placeholder="Vendor name">
+      </div>
+      <div class="edit-field">
+        <label>Invoice Number</label>
+        <input type="text" id="ef-invoiceNumber" placeholder="Invoice number">
+      </div>
+      <div class="edit-field">
+        <label>Invoice Date</label>
+        <input type="text" id="ef-invoiceDate" placeholder="YYYY-MM-DD">
+      </div>
+      <div class="edit-field">
+        <label>Due Date</label>
+        <input type="text" id="ef-dueDate" placeholder="YYYY-MM-DD">
+      </div>
+      <div class="edit-field">
+        <label>Category</label>
+        <input type="text" id="ef-category" placeholder="Category">
+      </div>
+      <div class="edit-field">
+        <label>Submitted By</label>
+        <input type="text" id="ef-submittedBy" placeholder="Name">
+      </div>
+      <div class="edit-field edit-field-full">
+        <label>Comments</label>
+        <textarea id="ef-comments" placeholder="Add comments…"></textarea>
+      </div>
+    </div>
+    <div class="modal-ftr">
+      <button class="mbtn mbtn-cancel" onclick="closeEditModal()">Cancel</button>
+      <button class="mbtn mbtn-ok save" id="editSaveBtn" onclick="saveEdit()">Save Changes</button>
+    </div>
+  </div>
+</div>
+
+<!-- Status change modal -->
+<div class="modal-bg" id="statusModalBg">
+  <div class="modal" style="max-width:360px">
+    <div class="modal-hdr">
+      <h2>Change Status</h2>
+      <button class="modal-x" onclick="closeStatusModal()">✕</button>
+    </div>
+    <div class="modal-info" id="statusModalInfo"></div>
+    <div class="modal-lbl" style="margin-bottom:7px">New Status</div>
+    <select class="filter-sel" id="sm-status" style="width:100%;padding:9px 30px 9px 10px;margin-bottom:4px">
+      <option value="PENDING">PENDING</option>
+      <option value="Approved">Approved</option>
+      <option value="Rejected">Rejected</option>
+    </select>
+    <div class="modal-ftr">
+      <button class="mbtn mbtn-cancel" onclick="closeStatusModal()">Cancel</button>
+      <button class="mbtn mbtn-ok save" id="statusSaveBtn" onclick="saveStatus()">Save</button>
     </div>
   </div>
 </div>
@@ -636,6 +767,10 @@ function route() {
 let allInvoices      = [];
 let filteredInvoices = [];
 let pendingAction    = null;
+let editingIdx       = null;
+let statusEditIdx    = null;
+let currentPage      = 1;
+const PAGE_SIZE      = 10;
 let donutChart       = null;
 let barChart         = null;
 let refreshTimer     = null;
@@ -759,18 +894,33 @@ function applyFilters() {
     return mQ && mSt;
   });
   document.getElementById('resultCount').textContent = `${filteredInvoices.length} of ${allInvoices.length} invoices`;
+  currentPage = 1;
   renderTable();
 }
 
 function renderTable() {
   const tbody = document.getElementById('tableBody');
   if (!filteredInvoices.length) {
-    tbody.innerHTML = `<tr><td colspan="10" class="empty-cell"><div class="ei">🔍</div>No invoices match your filters</td></tr>`;
+    tbody.innerHTML = `<tr><td colspan="11" class="empty-cell"><div class="ei">🔍</div>No invoices match your filters</td></tr>`;
+    document.getElementById('pagination').innerHTML = '';
     return;
   }
-  tbody.innerHTML = filteredInvoices.map(inv => {
+  const totalPages  = Math.ceil(filteredInvoices.length / PAGE_SIZE);
+  currentPage       = Math.max(1, Math.min(currentPage, totalPages));
+  const start       = (currentPage - 1) * PAGE_SIZE;
+  const pageSlice   = filteredInvoices.slice(start, start + PAGE_SIZE);
+
+  tbody.innerHTML = pageSlice.map(inv => {
     const s = norm(inv.status);
     const bc = s==='approved' ? 'b-approved' : s==='rejected' ? 'b-rejected' : 'b-pending';
+    const idx = allInvoices.indexOf(inv);
+    const editBtn   = `<button class="btn-act edit"   onclick="openEditModal(${idx})">Edit</button>`;
+    const statusBtn = `<button class="btn-act status" onclick="openStatusModal(${idx})">Status</button>`;
+    const actions = (s==='pending' || s==='')
+      ? `<button class="btn-act approve" onclick="openModal(${idx},'Approved')">Approve</button>
+         <button class="btn-act reject"  onclick="openModal(${idx},'Rejected')">Reject</button>
+         ${editBtn} ${statusBtn}`
+      : `${editBtn} ${statusBtn}`;
     let pat = '—';
     if (inv.processedAt) {
       try { pat = new Date(inv.processedAt).toLocaleString('en-IN',{dateStyle:'short',timeStyle:'short'}); }
@@ -787,8 +937,53 @@ function renderTable() {
       <td>${esc(inv.humanAction)||'—'}</td>
       <td class="cell-trunc" title="${esc(inv.comments)}">${esc(inv.comments)||'—'}</td>
       <td style="white-space:nowrap;font-size:12px">${pat}</td>
+      <td style="white-space:nowrap">${actions}</td>
     </tr>`;
   }).join('');
+
+  renderPagination();
+}
+
+function renderPagination() {
+  const total      = filteredInvoices.length;
+  const totalPages = Math.ceil(total / PAGE_SIZE);
+  const pg         = document.getElementById('pagination');
+  if (totalPages <= 1) { pg.innerHTML = ''; return; }
+
+  const startItem = (currentPage - 1) * PAGE_SIZE + 1;
+  const endItem   = Math.min(currentPage * PAGE_SIZE, total);
+
+  let pages = [];
+  if (totalPages <= 7) {
+    pages = Array.from({ length: totalPages }, (_, i) => i + 1);
+  } else if (currentPage <= 4) {
+    pages = [1, 2, 3, 4, 5, '…', totalPages];
+  } else if (currentPage >= totalPages - 3) {
+    pages = [1, '…', totalPages-4, totalPages-3, totalPages-2, totalPages-1, totalPages];
+  } else {
+    pages = [1, '…', currentPage-1, currentPage, currentPage+1, '…', totalPages];
+  }
+
+  const btns = pages.map(p =>
+    p === '…'
+      ? `<span class="pg-ellipsis">…</span>`
+      : `<button class="pg-btn${p === currentPage ? ' active' : ''}" onclick="goToPage(${p})">${p}</button>`
+  ).join('');
+
+  pg.innerHTML = `
+    <span class="pg-info">Showing ${startItem}–${endItem} of ${total} invoices</span>
+    <div class="pg-btns">
+      <button class="pg-btn" onclick="goToPage(${currentPage - 1})" ${currentPage === 1 ? 'disabled' : ''}>‹ Prev</button>
+      ${btns}
+      <button class="pg-btn" onclick="goToPage(${currentPage + 1})" ${currentPage === totalPages ? 'disabled' : ''}>Next ›</button>
+    </div>`;
+}
+
+function goToPage(p) {
+  const totalPages = Math.ceil(filteredInvoices.length / PAGE_SIZE);
+  currentPage = Math.max(1, Math.min(p, totalPages));
+  renderTable();
+  document.querySelector('.table-wrap').scrollIntoView({ behavior: 'smooth', block: 'nearest' });
 }
 
 function openModal(idx, action) {
@@ -848,7 +1043,163 @@ function startAutoRefresh() {
 document.getElementById('modalBg').addEventListener('click', e => {
   if (e.target === document.getElementById('modalBg')) closeModal();
 });
-document.addEventListener('keydown', e => { if (e.key === 'Escape') closeModal(); });
+document.getElementById('editModalBg').addEventListener('click', e => {
+  if (e.target === document.getElementById('editModalBg')) closeEditModal();
+});
+document.getElementById('statusModalBg').addEventListener('click', e => {
+  if (e.target === document.getElementById('statusModalBg')) closeStatusModal();
+});
+document.addEventListener('keydown', e => {
+  if (e.key === 'Escape') { closeModal(); closeEditModal(); closeStatusModal(); }
+});
+
+function openStatusModal(idx) {
+  const inv = allInvoices[idx];
+  if (!inv) return;
+  statusEditIdx = idx;
+  document.getElementById('statusModalInfo').innerHTML =
+    `<strong>${esc(inv.id)}</strong> — ${esc(inv.invoiceName)}<br>
+     Current status: <strong>${esc(inv.status || 'PENDING')}</strong>`;
+  const s = norm(inv.status);
+  document.getElementById('sm-status').value =
+    s === 'approved' ? 'Approved' : s === 'rejected' ? 'Rejected' : 'PENDING';
+  const btn = document.getElementById('statusSaveBtn');
+  btn.disabled = false; btn.textContent = 'Save';
+  document.getElementById('statusModalBg').classList.add('active');
+}
+
+function closeStatusModal() {
+  document.getElementById('statusModalBg').classList.remove('active');
+  statusEditIdx = null;
+}
+
+async function saveStatus() {
+  if (statusEditIdx === null) return;
+  const inv = allInvoices[statusEditIdx];
+  if (!inv) return;
+  const newStatus = document.getElementById('sm-status').value;
+  const btn = document.getElementById('statusSaveBtn');
+  btn.disabled = true; btn.textContent = 'Saving…';
+
+  const payload = {
+    action:      'status_change',
+    rowNumber:   inv._rowNum,
+    id:          inv.id,
+    status:      newStatus,
+    processedAt: new Date().toISOString(),
+  };
+
+  console.log('[saveStatus] Payload:', JSON.stringify(payload, null, 2));
+
+  try {
+    const res = await fetch(DASH_WEBHOOK, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(payload),
+    });
+    console.log('[saveStatus] Response:', res.status, res.statusText);
+    if (!res.ok) throw new Error(`Webhook ${res.status}`);
+    inv.status = newStatus;
+    showToast('Status updated to ' + newStatus, 'success');
+    closeStatusModal();
+    updateStats();
+    renderCharts();
+    renderTable();
+  } catch (err) {
+    console.error('[saveStatus] Error:', err.message, err);
+    showToast('Failed: ' + err.message, 'error');
+    btn.disabled = false; btn.textContent = 'Save';
+  }
+}
+
+function openEditModal(idx) {
+  const inv = allInvoices[idx];
+  if (!inv) return;
+  editingIdx = idx;
+  document.getElementById('editModalTitle').textContent = `Edit Invoice — ${inv.id}`;
+  document.getElementById('ef-invoiceName').value   = inv.invoiceName;
+  document.getElementById('ef-amount').value        = inv.amount || '';
+  document.getElementById('ef-vendorName').value    = inv.vendorName;
+  document.getElementById('ef-invoiceNumber').value = inv.invoiceNumber;
+  document.getElementById('ef-invoiceDate').value   = inv.invoiceDate;
+  document.getElementById('ef-dueDate').value       = inv.dueDate;
+  document.getElementById('ef-category').value      = inv.category;
+  document.getElementById('ef-submittedBy').value   = inv.submittedBy;
+  document.getElementById('ef-comments').value = inv.comments;
+  const btn = document.getElementById('editSaveBtn');
+  btn.disabled = false; btn.textContent = 'Save Changes';
+  document.getElementById('editModalBg').classList.add('active');
+  setTimeout(() => document.getElementById('ef-invoiceName').focus(), 80);
+}
+
+function closeEditModal() {
+  document.getElementById('editModalBg').classList.remove('active');
+  editingIdx = null;
+}
+
+async function saveEdit() {
+  if (editingIdx === null) return;
+  const inv = allInvoices[editingIdx];
+  if (!inv) return;
+  const btn = document.getElementById('editSaveBtn');
+  btn.disabled = true; btn.textContent = 'Saving…';
+
+  const payload = {
+    action:        'edit',
+    rowNumber:     inv._rowNum,
+    id:            inv.id,
+    invoiceName:   document.getElementById('ef-invoiceName').value.trim(),
+    amount:        document.getElementById('ef-amount').value.trim(),
+    vendorName:    document.getElementById('ef-vendorName').value.trim(),
+    invoiceNumber: document.getElementById('ef-invoiceNumber').value.trim(),
+    invoiceDate:   document.getElementById('ef-invoiceDate').value.trim(),
+    dueDate:       document.getElementById('ef-dueDate').value.trim(),
+    category:      document.getElementById('ef-category').value.trim(),
+    submittedBy:   document.getElementById('ef-submittedBy').value.trim(),
+    status:        inv.status,
+    comments:      document.getElementById('ef-comments').value.trim(),
+    processedAt:   new Date().toISOString(),
+  };
+
+  console.log('[saveEdit] Payload being sent to webhook:', JSON.stringify(payload, null, 2));
+  console.log('[saveEdit] rowNumber value:', payload.rowNumber, '| inv._rowNum:', inv._rowNum);
+
+  try {
+    const res = await fetch(DASH_WEBHOOK, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(payload),
+    });
+    console.log('[saveEdit] Webhook response status:', res.status, res.statusText);
+    if (!res.ok) throw new Error(`Webhook responded with ${res.status} ${res.statusText}`);
+
+    // Patch the invoice object in-place so filteredInvoices sees the update immediately
+    inv.invoiceName   = payload.invoiceName;
+    inv.amount        = parseFloat(payload.amount) || 0;
+    inv.vendorName    = payload.vendorName;
+    inv.invoiceNumber = payload.invoiceNumber;
+    inv.invoiceDate   = payload.invoiceDate;
+    inv.dueDate       = payload.dueDate;
+    inv.category      = payload.category;
+    inv.submittedBy   = payload.submittedBy;
+    inv.status        = payload.status;
+    inv.comments      = payload.comments;
+    inv.processedAt   = payload.processedAt;
+    console.log('[saveEdit] Local patch done → id:', inv.id, '| new status:', inv.status);
+
+    showToast('Invoice updated successfully', 'success');
+    closeEditModal();
+
+    // Re-render the SAME page (do NOT call applyFilters — that resets to page 1)
+    updateStats();
+    renderCharts();
+    renderTable();
+  } catch (err) {
+    console.error('[saveEdit] Error:', err.message, err);
+    showToast('Failed to update: ' + err.message, 'error');
+    btn.disabled = false; btn.textContent = 'Save Changes';
+  }
+}
 
 /* ================================================================
    REVIEW PAGE
