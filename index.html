@@ -1113,8 +1113,9 @@ async function saveStatus() {
 }
 
 function openEditModal(idx) {
+  console.log('openEditModal called — idx:', idx, '| invoice:', allInvoices[idx]);
   const inv = allInvoices[idx];
-  if (!inv) return;
+  if (!inv) { console.warn('openEditModal: no invoice at idx', idx); return; }
   editingIdx = idx;
   document.getElementById('editModalTitle').textContent = `Edit Invoice — ${inv.id}`;
   document.getElementById('ef-invoiceName').value   = inv.invoiceName;
@@ -1138,9 +1139,16 @@ function closeEditModal() {
 }
 
 async function saveEdit() {
-  if (editingIdx === null) return;
+  console.log('Save Changes clicked — editingIdx:', editingIdx, '| allInvoices.length:', allInvoices.length);
+  if (editingIdx === null) {
+    console.warn('saveEdit: editingIdx is null — modal was closed before save');
+    return;
+  }
   const inv = allInvoices[editingIdx];
-  if (!inv) return;
+  if (!inv) {
+    console.warn('saveEdit: no invoice found at index', editingIdx);
+    return;
+  }
   const btn = document.getElementById('editSaveBtn');
   btn.disabled = true; btn.textContent = 'Saving…';
 
