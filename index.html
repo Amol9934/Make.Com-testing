@@ -287,6 +287,7 @@
     .rv-card.c-blue   { border-left-color: var(--blue);   }
     .rv-card.c-purple { border-left-color: var(--purple); }
     .rv-card.c-red    { border-left-color: var(--red);    }
+    .rv-card.c-teal   { border-left-color: var(--teal);   }
 
     .rv-card-hdr {
       padding: 15px 20px; border-bottom: 1px solid var(--border);
@@ -385,6 +386,57 @@
     .rv-no-data-icon  { font-size: 40px; margin-bottom: 16px; opacity: .5; }
     .rv-no-data-title { font-size: 17px; font-weight: 600; margin-bottom: 8px; }
     .rv-no-data-msg   { font-size: 14px; color: var(--muted); }
+
+    /* ── Upload area ── */
+    .rv-upload-drop {
+      border: 2px dashed var(--border);
+      border-radius: var(--r);
+      padding: 28px 20px;
+      text-align: center;
+      cursor: pointer;
+      transition: border-color .2s, background .2s;
+      background: var(--bg);
+      user-select: none;
+    }
+    .rv-upload-drop:hover, .rv-upload-drop.dragover {
+      border-color: var(--blue);
+      background: #eff6ff;
+    }
+    .rv-upload-drop-icon { margin-bottom: 10px; color: var(--muted); }
+    .rv-upload-drop-text { font-size: 14px; font-weight: 500; margin-bottom: 4px; }
+    .rv-upload-drop-hint { font-size: 12px; color: var(--muted); }
+
+    .rv-upload-uploading {
+      display: flex; align-items: center; justify-content: center;
+      gap: 12px; padding: 28px 20px;
+      background: var(--bg); border-radius: var(--r);
+      font-size: 14px; color: var(--muted);
+    }
+
+    .rv-upload-done {
+      display: flex; align-items: center; gap: 14px;
+      padding: 14px 16px;
+      background: #f0fdf4; border: 1px solid #bbf7d0;
+      border-radius: var(--r);
+    }
+    .rv-upload-done-icon {
+      width: 44px; height: 44px; flex-shrink: 0;
+      border-radius: var(--rs); overflow: hidden;
+      background: #dcfce7; display: flex; align-items: center; justify-content: center;
+    }
+    .rv-upload-done-icon img { width: 44px; height: 44px; object-fit: cover; }
+    .rv-upload-done-info { flex: 1; min-width: 0; }
+    .rv-upload-done-name { font-size: 13px; font-weight: 600; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+    .rv-upload-done-check { color: var(--green); margin-right: 5px; }
+    .rv-upload-done-meta { font-size: 12px; color: var(--muted); margin-top: 2px; }
+    .rv-upload-remove {
+      flex-shrink: 0; padding: 5px 12px;
+      border: 1px solid #fca5a5; border-radius: var(--rs);
+      background: #fef2f2; color: #b91c1c;
+      font-size: 12px; font-weight: 500; cursor: pointer;
+      transition: all .15s; font-family: var(--font);
+    }
+    .rv-upload-remove:hover { background: var(--red); color: #fff; border-color: var(--red); }
 
     /* ── Responsive ── */
     @media (max-width: 540px) {
@@ -603,6 +655,55 @@
         </div>
         <div class="rv-card-body">
           <textarea class="rv-ta" id="rvComments" placeholder="Add any notes or comments about this invoice (optional)…"></textarea>
+        </div>
+      </div>
+
+      <!-- Invoice Image Upload -->
+      <div class="rv-card c-teal">
+        <div class="rv-card-hdr">
+          <span class="rv-card-title">Attach Invoice Image</span>
+          <span style="font-size:12px;color:var(--muted)">Optional</span>
+        </div>
+        <div class="rv-card-body">
+          <input type="file" id="rvFileInput" accept="image/jpeg,image/png,image/jpg,application/pdf"
+                 style="display:none" onchange="handleFileSelect(this.files[0])">
+
+          <!-- Idle: drag/drop area -->
+          <div id="rvUploadIdle">
+            <div class="rv-upload-drop" id="rvUploadDrop"
+                 onclick="document.getElementById('rvFileInput').click()"
+                 ondragover="handleDragOver(event)" ondragleave="handleDragLeave(event)" ondrop="handleDrop(event)">
+              <div class="rv-upload-drop-icon">
+                <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
+                  <polyline points="16 16 12 12 8 16"/>
+                  <line x1="12" y1="12" x2="12" y2="21"/>
+                  <path d="M20.39 18.39A5 5 0 0 0 18 9h-1.26A8 8 0 1 0 3 16.3"/>
+                </svg>
+              </div>
+              <div class="rv-upload-drop-text">Drag &amp; drop or <span style="color:var(--blue)">browse</span></div>
+              <div class="rv-upload-drop-hint">JPG, PNG or PDF</div>
+            </div>
+          </div>
+
+          <!-- Uploading -->
+          <div class="rv-upload-uploading" id="rvUploadProgress" style="display:none">
+            <div class="spinner" style="width:24px;height:24px;border-width:3px"></div>
+            <span>Uploading image…</span>
+          </div>
+
+          <!-- Success -->
+          <div id="rvUploadDone" style="display:none">
+            <div class="rv-upload-done">
+              <div class="rv-upload-done-icon" id="rvUploadThumbWrap"></div>
+              <div class="rv-upload-done-info">
+                <div class="rv-upload-done-name">
+                  <span class="rv-upload-done-check">✓</span><span id="rvUploadFileName"></span>
+                </div>
+                <div class="rv-upload-done-meta" id="rvUploadFileMeta"></div>
+              </div>
+              <button class="rv-upload-remove" onclick="removeUpload()">Remove</button>
+            </div>
+          </div>
         </div>
       </div>
 
@@ -1043,9 +1144,10 @@ const FIELDS = [
   { key: 'submittedBy',   label: 'Submitted By',  type: 'text',   editable: false, cls: '' },
 ];
 
-let rvData    = {};
-let rvEdit    = false;
-let rvWebhook = '';
+let rvData     = {};
+let rvEdit     = false;
+let rvWebhook  = '';
+let rvImageUrl = '';
 
 function initReview(params) {
   rvWebhook             = params.get('webhookUrl')     || '';
@@ -1122,6 +1224,80 @@ function toggleEdit() {
   renderRvFields();
 }
 
+function handleDragOver(e) {
+  e.preventDefault();
+  document.getElementById('rvUploadDrop').classList.add('dragover');
+}
+function handleDragLeave() {
+  document.getElementById('rvUploadDrop').classList.remove('dragover');
+}
+function handleDrop(e) {
+  e.preventDefault();
+  document.getElementById('rvUploadDrop').classList.remove('dragover');
+  const file = e.dataTransfer.files[0];
+  if (file) handleFileSelect(file);
+}
+
+function handleFileSelect(file) {
+  if (!file) return;
+  const allowed = ['image/jpeg', 'image/jpg', 'image/png', 'application/pdf'];
+  if (!allowed.includes(file.type)) {
+    showToast('Please select a JPG, PNG, or PDF file', 'error');
+    return;
+  }
+  uploadToCloudinary(file);
+}
+
+async function uploadToCloudinary(file) {
+  document.getElementById('rvUploadIdle').style.display     = 'none';
+  document.getElementById('rvUploadProgress').style.display = 'flex';
+  document.getElementById('rvUploadDone').style.display     = 'none';
+  try {
+    const fd = new FormData();
+    fd.append('file', file);
+    fd.append('upload_preset', 'ml_default');
+    const res = await fetch('https://api.cloudinary.com/v1_1/drvufkyhd/image/upload', {
+      method: 'POST', body: fd,
+    });
+    if (!res.ok) {
+      const errData = await res.json().catch(() => ({}));
+      throw new Error(errData.error?.message || `Upload failed (${res.status})`);
+    }
+    const data = await res.json();
+    rvImageUrl = data.secure_url;
+
+    const isPDF = file.type === 'application/pdf';
+    const thumbWrap = document.getElementById('rvUploadThumbWrap');
+    thumbWrap.innerHTML = isPDF
+      ? `<svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="#15803d" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/><polyline points="10 9 9 9 8 9"/></svg>`
+      : `<img src="${esc(rvImageUrl)}" alt="Invoice preview">`;
+
+    document.getElementById('rvUploadFileName').textContent = file.name;
+    document.getElementById('rvUploadFileMeta').textContent =
+      'Uploaded successfully · ' + formatFileSize(file.size);
+    document.getElementById('rvUploadProgress').style.display = 'none';
+    document.getElementById('rvUploadDone').style.display     = 'block';
+    showToast('Image uploaded successfully', 'success');
+  } catch (err) {
+    document.getElementById('rvUploadProgress').style.display = 'none';
+    document.getElementById('rvUploadIdle').style.display     = 'block';
+    showToast('Upload failed: ' + err.message, 'error');
+  }
+}
+
+function removeUpload() {
+  rvImageUrl = '';
+  document.getElementById('rvFileInput').value              = '';
+  document.getElementById('rvUploadDone').style.display     = 'none';
+  document.getElementById('rvUploadIdle').style.display     = 'block';
+}
+
+function formatFileSize(bytes) {
+  if (bytes < 1024) return bytes + ' B';
+  if (bytes < 1048576) return (bytes / 1024).toFixed(1) + ' KB';
+  return (bytes / 1048576).toFixed(1) + ' MB';
+}
+
 async function submitReviewAction(action) {
   console.log('[submitAction] called with action:', action);
   console.log('[submitAction] current rvData:', rvData);
@@ -1157,8 +1333,9 @@ async function submitReviewAction(action) {
     dueDate:       rvData.dueDate,
     category:      rvData.category,
     submittedBy:   rvData.submittedBy,
-    comments:      document.getElementById('rvComments').value,
-    processedAt:   new Date().toISOString(),
+    comments:        document.getElementById('rvComments').value,
+    invoiceImageUrl: rvImageUrl,
+    processedAt:     new Date().toISOString(),
   };
 
   console.log('[submitAction] payload being sent:', payload);
